@@ -1,9 +1,9 @@
-# 🎮 Neon Protocol: Cyber Survivor
+# 🎮 Cyber Survivor
 
 Um jogo roguelike de sobrevivência com estética dark synthwave / cyberpunk espacial construído com **Canvas HTML5/JS puro (Zero-Dependency)** e **Godot 4.4 Engine**.
 
 Deploy contínuo na Vercel:
-- **Subdomínio Oficial:** [https://survivor.aaron.dev.br/](https://survivor.aaron.dev.br/)
+- **Subdomínio Oficial:** [https://cybersurvivor.aaron.dev.br/](https://cybersurvivor.aaron.dev.br/)
 - **Mirror Vercel:** [https://cyber-survivor.vercel.app/](https://cyber-survivor.vercel.app/)
 
 ---
