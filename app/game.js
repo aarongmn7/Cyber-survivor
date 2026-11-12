@@ -175,6 +175,36 @@
         gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
         osc.start(now);
         osc.stop(now + 0.08);
+      } else if (type === 'boss_spawn') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.linearRampToValueAtTime(55, now + 0.35);
+        gain.gain.setValueAtTime(0.24, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else if (type === 'boss_defeat') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(261.63, now);
+        osc.frequency.setValueAtTime(329.63, now + 0.12);
+        osc.frequency.setValueAtTime(392.00, now + 0.24);
+        osc.frequency.setValueAtTime(523.25, now + 0.36);
+        osc.frequency.setValueAtTime(659.25, now + 0.48);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.65);
+        osc.start(now);
+        osc.stop(now + 0.65);
+      } else if (type === 'mega_upgrade') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(330, now);
+        osc.frequency.setValueAtTime(440, now + 0.08);
+        osc.frequency.setValueAtTime(554.37, now + 0.16);
+        osc.frequency.setValueAtTime(659.25, now + 0.24);
+        osc.frequency.setValueAtTime(880, now + 0.32);
+        gain.gain.setValueAtTime(0.20, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
       }
     } catch (e) {
       // Audio context might be restricted before user gesture
@@ -264,9 +294,11 @@
     }
   });
 
-  // Pointer & Touch Controls (Suporte Mobile e Mouse Drag)
+  // Pointer & Touch Controls (Suporte Mobile, Mouse Aim e Drag)
   let isPointerDown = false;
   let pointerTarget = null;
+  let mouseWorldPos = { x: V_WIDTH * 0.5, y: V_HEIGHT * 0.5 - 100 };
+  let hasMovedMouse = false;
 
   function getCanvasMousePos(e) {
     const rect = canvas.getBoundingClientRect();
@@ -278,9 +310,20 @@
     };
   }
 
+  function screenToWorld(sx, sy) {
+    const cx = V_WIDTH * 0.5;
+    const cy = V_HEIGHT * 0.5;
+    return {
+      x: cx + (sx - cx) / Math.max(0.2, currentZoom),
+      y: cy + (sy - cy) / Math.max(0.2, currentZoom)
+    };
+  }
+
   canvas.addEventListener('mousedown', (e) => {
     initAudio();
     const m = getCanvasMousePos(e);
+    mouseWorldPos = screenToWorld(m.x, m.y);
+    hasMovedMouse = true;
     // Não ativa arrasto se clicar no HUD
     if (m.y > 55 && state === GameState.PLAYING) {
       isPointerDown = true;
@@ -289,8 +332,11 @@
   });
 
   window.addEventListener('mousemove', (e) => {
+    const m = getCanvasMousePos(e);
+    mouseWorldPos = screenToWorld(m.x, m.y);
+    hasMovedMouse = true;
     if (isPointerDown && state === GameState.PLAYING) {
-      pointerTarget = getCanvasMousePos(e);
+      pointerTarget = m;
     }
   });
 
@@ -475,9 +521,31 @@
   let empTimer = 0.0;
   const empCooldown = 3.5;
 
+  // Aim Assist & Linear Boss Progression
+  let hasAimAssist = false;      // Inicialmente FALSO: mira manual e tiro rápido; vira Mega Upgrade no Nível 10!
+  let aimAssistPenalty = 1.45;   // Penalidade inicial de cadência ao usar tiro automático (+45% cooldown)
+  let isBossEncounter = false;   // Ativo quando o Boss do Nível 10/20/30 está no campo
+  let currentBoss = null;        // Entidade do Boss Titã
+  let isMegaUpgradeModal = false;// Modal dourado/ciano com 3 Mega Upgrades lendários
+  let bossDefeatedCount = 0;
+
   // Dynamic Camera Zoom
   let currentZoom = 1.0;
   let targetZoom = 1.0;
+
+  function getArenaBounds() {
+    const halfVisibleW = (V_WIDTH * 0.5) / Math.max(0.2, currentZoom);
+    const halfVisibleH = (V_HEIGHT * 0.5) / Math.max(0.2, currentZoom);
+    const margin = 28;
+    return {
+      minX: V_WIDTH * 0.5 - halfVisibleW + margin,
+      maxX: V_WIDTH * 0.5 + halfVisibleW - margin,
+      minY: V_HEIGHT * 0.5 - halfVisibleH + margin + 45,
+      maxY: V_HEIGHT * 0.5 + halfVisibleH - margin,
+      width: (halfVisibleW * 2) - margin * 2,
+      height: (halfVisibleH * 2) - margin * 2 - 45
+    };
+  }
 
   // Dash & Mobility (Tactical Thrusters)
   const DASH_COOLDOWN = 1.35;
@@ -563,6 +631,13 @@
     xpMagnetRadius = BASE_XP_MAGNET_RADIUS;
     hasEmpNova = false;
     empTimer = 0.0;
+
+    hasAimAssist = false;
+    aimAssistPenalty = 1.45;
+    isBossEncounter = false;
+    currentBoss = null;
+    isMegaUpgradeModal = false;
+    bossDefeatedCount = 0;
 
     currentZoom = 1.0;
     targetZoom = 1.0;
@@ -696,11 +771,12 @@
     if (state === GameState.PLAYING) {
       survivalTimer += dt;
 
-      // Dynamic Camera Zoom Calculation based on player speed and dashing
-      const speedRatio = player.speed / BASE_PLAYER_SPEED;
-      const dashBonus = dashActiveTimer > 0 ? 0.08 : 0.0;
-      targetZoom = Math.max(0.68, 1.0 - (speedRatio - 1.0) * 0.22 - dashBonus);
-      currentZoom += (targetZoom - currentZoom) * Math.min(1.0, 5.0 * dt);
+      // Dynamic Camera Zoom Calculation based on Level and Mobility
+      // O zoom se afasta gradualmente conforme os níveis avançam para revelar mais campo e hordas maiores!
+      const levelZoom = Math.max(0.50, 1.0 - (level - 1) * 0.018);
+      const dashBonus = dashActiveTimer > 0 ? 0.05 : 0.0;
+      targetZoom = Math.max(0.48, levelZoom - dashBonus);
+      currentZoom += (targetZoom - currentZoom) * Math.min(1.0, 3.5 * dt);
 
       // Dash timers
       if (dashCooldownTimer > 0) {
@@ -718,8 +794,8 @@
         }
       }
 
-      // Elite Threat Anomaly Warning & Trigger (a cada 60s)
-      if (survivalTimer >= nextEliteTime) {
+      // Elite Threat Anomaly Warning & Trigger (somente fora de confrontos com Boss)
+      if (!isBossEncounter && survivalTimer >= nextEliteTime) {
         nextEliteTime += 60.0;
         eliteWarningTimer = 3.5;
         playSynthSound('elite');
@@ -739,8 +815,13 @@
       // Movement Input (WASD or Touch/Mouse Drag)
       handlePlayerMovement(dt);
 
-      // Weapons (Overdrive boosts fire rate)
-      handleAutoCombat(dt);
+      // Boss Logic (Atualiza movimento e padrões de tiro se o Chefe estiver ativo)
+      if (currentBoss) {
+        updateBoss(dt);
+      }
+
+      // Weapons Combat (Manual ou Aim Assist 360°)
+      handleCombat(dt);
 
       // Orbital Shield
       if (hasOrbitalShield && orbitalShieldCount > 0) {
@@ -763,9 +844,9 @@
       }
       updateEmpWaves(dt);
 
-      // Enemy Spawner
+      // Enemy Spawner (Escala frequência com o nível)
       spawnTimer += dt;
-      currentSpawnInterval = Math.max(0.35, BASE_SPAWN_INTERVAL - (survivalTimer / 75.0) * 0.4);
+      currentSpawnInterval = Math.max(0.35, 1.20 - (level * 0.035));
       if (spawnTimer >= currentSpawnInterval) {
         spawnTimer = 0;
         spawnEnemyWave();
@@ -784,6 +865,8 @@
   }
 
   function handlePlayerMovement(dt) {
+    const bounds = getArenaBounds();
+
     if (dashActiveTimer > 0) {
       player.vx = dashDirX * player.speed * DASH_SPEED_MULT;
       player.vy = dashDirY * player.speed * DASH_SPEED_MULT;
@@ -800,9 +883,8 @@
         });
       }
 
-      const margin = 28;
-      player.x = Math.max(margin, Math.min(V_WIDTH - margin, player.x));
-      player.y = Math.max(margin + 45, Math.min(V_HEIGHT - margin, player.y));
+      player.x = Math.max(bounds.minX, Math.min(bounds.maxX, player.x));
+      player.y = Math.max(bounds.minY, Math.min(bounds.maxY, player.y));
       gridOffsetX += player.vx * dt * 0.35;
       gridOffsetY += player.vy * dt * 0.35;
       return;
@@ -867,33 +949,64 @@
     player.x += player.vx * dt;
     player.y += player.vy * dt;
 
-    // Arena Clamping
-    const margin = 28;
-    player.x = Math.max(margin, Math.min(V_WIDTH - margin, player.x));
-    player.y = Math.max(margin + 45, Math.min(V_HEIGHT - margin, player.y));
+    // Arena Clamping dinâmico expandido com o zoom
+    player.x = Math.max(bounds.minX, Math.min(bounds.maxX, player.x));
+    player.y = Math.max(bounds.minY, Math.min(bounds.maxY, player.y));
 
     gridOffsetX += player.vx * dt * 0.35;
     gridOffsetY += player.vy * dt * 0.35;
   }
 
-  function handleAutoCombat(dt) {
+  function handleCombat(dt) {
     laserCooldownTimer -= dt;
     const speedBoost = isOverdriveActive ? 0.45 : 1.0;
-    const currentCooldown = BASE_LASER_COOLDOWN * fireRateMultiplier * speedBoost;
+    // Quando tem Aim Assist, inicialmente a cadência tem uma penalidade (+45% cooldown) para balanceamento
+    const penalty = hasAimAssist ? aimAssistPenalty : 1.0;
+    const currentCooldown = BASE_LASER_COOLDOWN * fireRateMultiplier * speedBoost * penalty;
 
     if (laserCooldownTimer <= 0) {
-      const nearest = findNearestEnemy();
-      if (nearest) {
-        fireLasers(nearest.x, nearest.y);
+      if (hasAimAssist) {
+        // Aim Assist: auto-mira em 360° no inimigo ou boss mais próximo
+        const target = findNearestTarget();
+        if (target) {
+          fireLasers(target.x, target.y);
+          laserCooldownTimer = currentCooldown;
+          playSynthSound('laser');
+        } else {
+          // Sem inimigo: dispara frontalmente
+          const fx = player.x + Math.cos(player.angle) * 220;
+          const fy = player.y + Math.sin(player.angle) * 220;
+          fireLasers(fx, fy);
+          laserCooldownTimer = currentCooldown;
+          playSynthSound('laser');
+        }
+      } else {
+        // Modo Manual: atira na direção do mouse ou do nariz da nave com cadência mais rápida
+        let tx, ty;
+        if (hasMovedMouse && mouseWorldPos) {
+          tx = mouseWorldPos.x;
+          ty = mouseWorldPos.y;
+        } else {
+          tx = player.x + Math.cos(player.angle) * 220;
+          ty = player.y + Math.sin(player.angle) * 220;
+        }
+        fireLasers(tx, ty);
         laserCooldownTimer = currentCooldown;
         playSynthSound('laser');
       }
     }
   }
 
-  function findNearestEnemy() {
+  function findNearestTarget() {
     let closest = null;
     let minDist = Infinity;
+
+    // Prioriza o Boss se estiver ativo e próximo
+    if (currentBoss && currentBoss.hp > 0) {
+      const db = Math.hypot(player.x - currentBoss.x, player.y - currentBoss.y);
+      if (db < 700) return currentBoss;
+    }
+
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
       const d = Math.hypot(player.x - e.x, player.y - e.y);
@@ -902,7 +1015,125 @@
         closest = e;
       }
     }
-    return closest;
+    return closest || currentBoss;
+  }
+
+  function spawnBoss(bossLevel) {
+    isBossEncounter = true;
+    const b = getArenaBounds();
+    const bossHp = 1000 + (bossLevel * 80);
+    const bossNames = {
+      10: 'TITAN PROTOCOL: CYBER GOLIATH T-10',
+      20: 'APEX GLITCH LEVIATHAN T-20',
+      30: 'OMEGA OVERMIND CORE T-30'
+    };
+    const bName = bossNames[bossLevel] || `TITAN PROTOCOL T-${bossLevel}`;
+
+    currentBoss = {
+      name: bName,
+      level: bossLevel,
+      x: V_WIDTH * 0.5,
+      y: b.minY - 120,
+      targetY: b.minY + 110,
+      hp: bossHp,
+      maxHp: bossHp,
+      radius: 52,
+      speed: 46,
+      shootTimer: 2.0,
+      phaseTimer: 0,
+      color: '#ffffff',
+      isBoss: true
+    };
+
+    screenShake = 18;
+    playSynthSound('boss_spawn');
+    eliteWarningTimer = 4.0;
+  }
+
+  function updateBoss(dt) {
+    if (!currentBoss || currentBoss.hp <= 0) return;
+    const b = currentBoss;
+
+    // Movimentação do Boss (descida e patrulha senoidal elegante)
+    if (b.y < b.targetY) {
+      b.y += 110 * dt;
+    } else {
+      b.phaseTimer += dt;
+      b.x = (V_WIDTH * 0.5) + Math.sin(b.phaseTimer * 0.75) * ((V_WIDTH * 0.5) - 220);
+      b.y = b.targetY + Math.cos(b.phaseTimer * 1.5) * 30;
+    }
+
+    // Ataques do Boss
+    b.shootTimer -= dt;
+    if (b.shootTimer <= 0) {
+      b.shootTimer = 2.0 + Math.random() * 0.4;
+      const aimAngle = Math.atan2(player.y - b.y, player.x - b.x);
+
+      // Rajada quíntupla de esferas de plasma em leque
+      for (let s = -2; s <= 2; s++) {
+        const sang = aimAngle + s * 0.18;
+        enemyBullets.push({
+          x: b.x + Math.cos(sang) * (b.radius + 10),
+          y: b.y + Math.sin(sang) * (b.radius + 10),
+          vx: Math.cos(sang) * 280,
+          vy: Math.sin(sang) * 280,
+          radius: 7,
+          damage: 18,
+          life: 4.5
+        });
+      }
+      playSynthSound('enemy_shot');
+    }
+
+    // Colisão direta com o jogador
+    if (player.invulnerableTimer <= 0 && Math.hypot(b.x - player.x, b.y - player.y) <= b.radius + 18) {
+      player.health -= 25;
+      player.invulnerableTimer = 0.7;
+      screenShake = 14;
+      createSparks(player.x, player.y, '#ffffff', 14);
+      addFloatingText(player.x, player.y - 25, '-25 HP [BOSS COLLISION]', '#ef4444');
+      playSynthSound('hit');
+
+      if (player.health <= 0) {
+        triggerGameOver();
+      }
+    }
+  }
+
+  function defeatBoss() {
+    if (!currentBoss) return;
+    bossDefeatedCount++;
+    score += currentBoss.maxHp * 5;
+    createExplosion(currentBoss.x, currentBoss.y, '#ffffff', 55);
+    createExplosion(currentBoss.x, currentBoss.y, '#00f0ff', 35);
+    screenShake = 22;
+    playSynthSound('boss_defeat');
+
+    // Drops épicos de XP
+    for (let i = 0; i < 8; i++) {
+      const ang = (i * Math.PI * 2) / 8;
+      xpGems.push({
+        x: currentBoss.x + Math.cos(ang) * 45,
+        y: currentBoss.y + Math.sin(ang) * 45,
+        vx: Math.cos(ang) * 80,
+        vy: Math.sin(ang) * 80,
+        value: 60,
+        isVacuumed: true
+      });
+    }
+
+    // Cura tática de 40% do HP Máximo
+    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.40);
+    addFloatingText(player.x, player.y - 45, '★ SECTOR TITAN PURGED! ★', '#ffffff');
+    addFloatingText(player.x, player.y - 70, '+40% REPAIR PROTOCOL', '#10b981');
+
+    currentBoss = null;
+    isBossEncounter = false;
+
+    // Dispara a entrega de 3 MEGA UPGRADES!
+    setTimeout(() => {
+      openMegaUpgradeModal();
+    }, 600);
   }
 
   function fireLasers(tx, ty) {
@@ -1027,6 +1258,17 @@
         }
       }
 
+      // Dano contínuo por contato no Boss
+      if (currentBoss && currentBoss.hp > 0) {
+        if (Math.hypot(pos.x - currentBoss.x, pos.y - currentBoss.y) <= orbHitRadius + currentBoss.radius) {
+          currentBoss.hp -= ORBITAL_SHIELD_DAMAGE * dt * 2.8;
+          createSparks(pos.x, pos.y, '#ffffff', 2);
+          if (currentBoss.hp <= 0) {
+            defeatBoss();
+          }
+        }
+      }
+
       // 2. Interceptação e destruição tática de projéteis inimigos!
       for (let b = enemyBullets.length - 1; b >= 0; b--) {
         const eb = enemyBullets[b];
@@ -1056,7 +1298,16 @@
 
       if (dr.shootTimer <= 0) {
         let nearest = null;
-        let minDist = 420;
+        let minDist = 480;
+
+        if (currentBoss && currentBoss.hp > 0) {
+          const db = Math.hypot(dx - currentBoss.x, dy - currentBoss.y);
+          if (db < minDist) {
+            nearest = currentBoss;
+            minDist = db;
+          }
+        }
+
         for (let j = 0; j < enemies.length; j++) {
           const e = enemies[j];
           const dist = Math.hypot(dx - e.x, dy - e.y);
@@ -1201,6 +1452,17 @@
         }
       }
 
+      // Dano de onda EMP no Boss
+      if (currentBoss && currentBoss.hp > 0) {
+        const distB = Math.hypot(w.x - currentBoss.x, w.y - currentBoss.y);
+        if (Math.abs(distB - w.radius) < 30) {
+          currentBoss.hp -= w.damage * dt * 4.5;
+          if (currentBoss.hp <= 0) {
+            defeatBoss();
+          }
+        }
+      }
+
       if (w.radius >= w.maxRadius) {
         empWaves.splice(i, 1);
       }
@@ -1208,56 +1470,64 @@
   }
 
   function spawnEnemyWave() {
-    let spawnX = 0;
-    let spawnY = 0;
-    const edge = Math.floor(Math.random() * 4);
+    // Durante a batalha com o Boss, limita os lacaios a uma escolta controlada
+    if (isBossEncounter && enemies.length >= 8) return;
+
+    const b = getArenaBounds();
+    const spawnCount = isBossEncounter ? 2 : Math.min(16, 1 + Math.floor(level * 0.75));
     const offset = 40;
 
-    switch (edge) {
-      case 0: spawnX = Math.random() * V_WIDTH; spawnY = -offset; break;
-      case 1: spawnX = V_WIDTH + offset; spawnY = Math.random() * V_HEIGHT; break;
-      case 2: spawnX = Math.random() * V_WIDTH; spawnY = V_HEIGHT + offset; break;
-      case 3: spawnX = -offset; spawnY = Math.random() * V_HEIGHT; break;
+    for (let s = 0; s < spawnCount; s++) {
+      let spawnX = 0;
+      let spawnY = 0;
+      const edge = Math.floor(Math.random() * 4);
+
+      switch (edge) {
+        case 0: spawnX = b.minX + Math.random() * b.width; spawnY = b.minY - offset; break;
+        case 1: spawnX = b.maxX + offset; spawnY = b.minY + Math.random() * b.height; break;
+        case 2: spawnX = b.minX + Math.random() * b.width; spawnY = b.maxY + offset; break;
+        case 3: spawnX = b.minX - offset; spawnY = b.minY + Math.random() * b.height; break;
+      }
+
+      const roll = Math.random();
+      let type = 'mite';
+      let hp = 20 + (survivalTimer / 30) * 12 + (level * 2);
+      let speed = 95 + (Math.random() - 0.5) * 30;
+      let radius = 14;
+      let color = '#d4d4d8'; // Zinc 300
+
+      if (survivalTimer > 12 && roll < 0.28) {
+        type = 'sniper';
+        hp = 30 + (survivalTimer / 25) * 12 + (level * 3);
+        speed = 85;
+        radius = 16;
+        color = '#e4e4e7';
+      } else if (survivalTimer > 25 && roll < 0.55) {
+        type = 'byte';
+        hp = 45 + (survivalTimer / 20) * 15 + (level * 4);
+        speed = 70;
+        radius = 18;
+        color = '#ffffff'; // Pure White
+      } else if (survivalTimer > 50 && roll < 0.22) {
+        type = 'corruptor';
+        hp = 160 + (survivalTimer / 15) * 40 + (level * 8);
+        speed = 45;
+        radius = 28;
+        color = '#a1a1aa'; // Zinc 400
+      }
+
+      enemies.push({
+        x: spawnX,
+        y: spawnY,
+        hp: hp,
+        maxHp: hp,
+        speed: speed,
+        radius: radius,
+        color: color,
+        type: type,
+        shootTimer: 1.6 + Math.random() * 1.2
+      });
     }
-
-    const roll = Math.random();
-    let type = 'mite';
-    let hp = 20 + (survivalTimer / 30) * 12;
-    let speed = 95 + (Math.random() - 0.5) * 30;
-    let radius = 14;
-    let color = '#d4d4d8'; // Zinc 300
-
-    if (survivalTimer > 12 && roll < 0.28) {
-      type = 'sniper';
-      hp = 30 + (survivalTimer / 25) * 12;
-      speed = 85;
-      radius = 16;
-      color = '#e4e4e7';
-    } else if (survivalTimer > 30 && roll < 0.55) {
-      type = 'byte';
-      hp = 45 + (survivalTimer / 20) * 15;
-      speed = 70;
-      radius = 18;
-      color = '#ffffff'; // Pure White
-    } else if (survivalTimer > 60 && roll < 0.20) {
-      type = 'corruptor';
-      hp = 160 + (survivalTimer / 15) * 40;
-      speed = 45;
-      radius = 28;
-      color = '#a1a1aa'; // Zinc 400
-    }
-
-    enemies.push({
-      x: spawnX,
-      y: spawnY,
-      hp: hp,
-      maxHp: hp,
-      speed: speed,
-      radius: radius,
-      color: color,
-      type: type,
-      shootTimer: 1.6 + Math.random() * 1.2
-    });
   }
 
   function updateLasers(dt) {
@@ -1267,6 +1537,33 @@
       l.y += l.vy * dt;
       l.life -= dt;
       l.hitEnemies = l.hitEnemies || new Set();
+
+      // Colisão com o Boss
+      if (currentBoss && currentBoss.hp > 0 && !l.hitEnemies.has(currentBoss)) {
+        if (Math.hypot(l.x - currentBoss.x, l.y - currentBoss.y) <= currentBoss.radius + 8) {
+          l.hitEnemies.add(currentBoss);
+          currentBoss.hp -= l.damage;
+          l.pierce = (l.pierce !== undefined ? l.pierce : 1) - 1;
+
+          if (l.isCrit) {
+            screenShake = Math.max(screenShake, 5);
+            createSparks(l.x, l.y, '#ffffff', 8);
+            addFloatingText(currentBoss.x, currentBoss.y - 30, `⚡CRIT! ${Math.floor(l.damage)}`, '#00f0ff');
+          } else {
+            createSparks(l.x, l.y, '#ffffff', 4);
+          }
+          playSynthSound('hit');
+
+          if (currentBoss.hp <= 0) {
+            defeatBoss();
+          }
+
+          if (l.pierce <= 0) {
+            lasers.splice(i, 1);
+            continue;
+          }
+        }
+      }
 
       for (let j = 0; j < enemies.length; j++) {
         const e = enemies[j];
@@ -1445,6 +1742,13 @@
   }
 
   function gainXP(amt) {
+    // Durante o confronto com o Boss do Setor, o XP acumula até encher mas segura o level-up
+    if (isBossEncounter && currentXP + amt >= targetXP) {
+      currentXP = targetXP - 1;
+      score += amt;
+      return;
+    }
+
     currentXP += amt;
     score += amt;
     if (currentXP >= targetXP) {
@@ -1455,15 +1759,15 @@
   function levelUp() {
     currentXP -= targetXP;
     level++;
-    targetXP = Math.round(BASE_XP_LEVEL_UP * Math.pow(1.20, level - 1));
+    targetXP = Math.round(BASE_XP_LEVEL_UP * Math.pow(1.18, level - 1));
 
-    // Bônus passivo a cada nível: +5% Velocidade e +5% Max HP (com cura de 10%)
-    player.speed *= 1.05;
+    // Bônus passivo a cada nível: +4% Velocidade e +5% Max HP (com cura de 10%)
+    player.speed *= 1.04;
     player.maxHealth *= 1.05;
     player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.10);
 
-    addFloatingText(player.x, player.y - 45, 'PROTOCOL LEVEL UP!', '#fafafa');
-    addFloatingText(player.x, player.y - 70, '+5% SPEED & HP OVERCLOCK', '#ffffff');
+    addFloatingText(player.x, player.y - 45, `PROTOCOL LEVEL ${level}!`, '#fafafa');
+    addFloatingText(player.x, player.y - 70, '+4% SPEED & HP OVERCLOCK', '#ffffff');
     createExplosion(player.x, player.y, '#ffffff', 32);
     playSynthSound('levelup');
 
@@ -1472,11 +1776,17 @@
       g.isVacuumed = true;
     }
 
-    openUpgradeModal();
+    // A cada 10 níveis (Nível 10, 20, 30...), INICIA O BOSS DO SETOR!
+    if (level % 10 === 0) {
+      spawnBoss(level);
+    } else {
+      openUpgradeModal();
+    }
   }
 
   function openUpgradeModal() {
     state = GameState.LEVEL_UP;
+    isMegaUpgradeModal = false;
     const catalog = [
       { id: 'multishot', title: 'DISPARO EXPANSIVO', desc: `+2 Lasers em Leque (Total: ${projectileCount + 2})`, icon: '◈' },
       { id: 'orbital_shield', title: 'MATRIZ DE ESCUDOS', desc: `+1 Escudo Orbital Concêntrico (Total: ${orbitalShieldCount + 1})`, icon: '◎' },
@@ -1493,9 +1803,81 @@
     upgradeOptions = catalog.slice(0, 3);
   }
 
+  function openMegaUpgradeModal() {
+    state = GameState.LEVEL_UP;
+    isMegaUpgradeModal = true;
+    playSynthSound('mega_upgrade');
+
+    const megaCatalog = [];
+
+    // 1. Aim Assist / Mira Automática 360° (ou Overclock V2 se já tiver)
+    if (!hasAimAssist) {
+      megaCatalog.push({
+        id: 'mega_aim_assist',
+        title: 'MIRA AUTOMÁTICA // AIM ASSIST',
+        desc: 'Instala IA preditiva de tiro 360° no alvo mais próximo. (Cadência inicial: +45% cooldown).',
+        icon: '🎯'
+      });
+    } else {
+      megaCatalog.push({
+        id: 'mega_aim_turbo',
+        title: 'OVERCLOCK AIM ASSIST V2',
+        desc: 'Elimina a lentidão do tiro automático (+45% velocidade) e adiciona +25% de Chance Crítica.',
+        icon: '⚡'
+      });
+    }
+
+    // 2. Hiper Canhão Overcharge
+    megaCatalog.push({
+      id: 'mega_overcharge',
+      title: 'HIPER CANHÃO OVERCHARGE',
+      desc: '+3 Canhões frontais simultâneos, +50% dano base permanente e feixes gigantes com perfuração +2.',
+      icon: '💥'
+    });
+
+    // 3. Bastião Orbital Titânico
+    megaCatalog.push({
+      id: 'mega_orbital_bastion',
+      title: 'BASTIÃO ORBITAL TITÂNICO',
+      desc: '+3 Escudos orbitais blindados que deflectem 100% dos tiros inimigos e causam dobro de dano.',
+      icon: '🛡️'
+    });
+
+    upgradeOptions = megaCatalog.slice(0, 3);
+  }
+
   function selectUpgrade(idx) {
     if (idx < 0 || idx >= upgradeOptions.length) return;
     const choice = upgradeOptions[idx];
+
+    if (choice.id.startsWith('mega_')) {
+      switch (choice.id) {
+        case 'mega_aim_assist':
+          hasAimAssist = true;
+          addFloatingText(player.x, player.y - 50, 'AIM ASSIST ONLINE!', '#00f0ff');
+          break;
+        case 'mega_aim_turbo':
+          aimAssistPenalty = 1.0;
+          critChance = Math.min(0.85, critChance + 0.25);
+          critMultiplier += 0.5;
+          addFloatingText(player.x, player.y - 50, 'AIM ASSIST OVERCLOCKED!', '#00f0ff');
+          break;
+        case 'mega_overcharge':
+          projectileCount += 3;
+          laserPierce += 2;
+          player.maxHealth += 30;
+          addFloatingText(player.x, player.y - 50, 'OVERCHARGE ENGAGED!', '#ffffff');
+          break;
+        case 'mega_orbital_bastion':
+          hasOrbitalShield = true;
+          orbitalShieldCount += 3;
+          addFloatingText(player.x, player.y - 50, 'TITAN BASTION ACTIVE!', '#ffffff');
+          break;
+      }
+      isMegaUpgradeModal = false;
+      state = GameState.PLAYING;
+      return;
+    }
 
     switch (choice.id) {
       case 'multishot':
@@ -1530,6 +1912,7 @@
         break;
     }
 
+    isMegaUpgradeModal = false;
     state = GameState.PLAYING;
   }
 
@@ -1650,8 +2033,11 @@
     // 5. Enemy Bullets
     drawEnemyBullets();
 
-    // 6. Enemies
+    // 6. Enemies & Sector Titan Boss
     drawEnemies();
+    if (currentBoss) {
+      drawBoss();
+    }
 
     // 7. Player Ship, Ghost Trails, Drones & Shields
     if (state !== GameState.GAME_OVER) {
@@ -1659,6 +2045,60 @@
       drawDrones();
       drawPlayer();
       if (hasOrbitalShield) drawOrbitalShields();
+
+      // Guia Laser Manual (Quando o jogador ainda não desbloqueou o Aim Assist)
+      if (!hasAimAssist && state === GameState.PLAYING) {
+        let aimAng;
+        if (hasMovedMouse && mouseWorldPos) {
+          aimAng = Math.atan2(mouseWorldPos.y - player.y, mouseWorldPos.x - player.x);
+        } else {
+          aimAng = player.angle;
+        }
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(player.x, player.y);
+        ctx.lineTo(player.x + Math.cos(aimAng) * 150, player.y + Math.sin(aimAng) * 150);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.beginPath();
+        ctx.arc(player.x + Math.cos(aimAng) * 150, player.y + Math.sin(aimAng) * 150, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Retículo de Mira Cibernético (Quando o jogador desbloqueou o Aim Assist)
+      if (hasAimAssist && state === GameState.PLAYING) {
+        const lockedTarget = findNearestTarget();
+        if (lockedTarget) {
+          ctx.save();
+          ctx.strokeStyle = '#00f0ff';
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 8;
+          ctx.lineWidth = 1.5;
+          const tr = lockedTarget.radius + 8;
+          const tx = lockedTarget.x;
+          const ty = lockedTarget.y;
+          const blen = 6;
+
+          ctx.beginPath();
+          ctx.moveTo(tx - tr, ty - tr + blen); ctx.lineTo(tx - tr, ty - tr); ctx.lineTo(tx - tr + blen, ty - tr);
+          ctx.moveTo(tx + tr - blen, ty - tr); ctx.lineTo(tx + tr, ty - tr); ctx.lineTo(tx + tr, ty - tr + blen);
+          ctx.moveTo(tx - tr, ty + tr - blen); ctx.lineTo(tx - tr, ty + tr); ctx.lineTo(tx - tr + blen, ty + tr);
+          ctx.moveTo(tx + tr - blen, ty + tr); ctx.lineTo(tx + tr, ty + tr); ctx.lineTo(tx + tr, ty + tr - blen);
+          ctx.stroke();
+
+          ctx.fillStyle = '#00f0ff';
+          ctx.beginPath();
+          ctx.arc(tx, ty, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
     }
 
     // 8. Particles
@@ -1682,6 +2122,9 @@
     // 12. Top HUD Bar (always stays stationary, no screen shake)
     drawHUD();
 
+    // 12.1 Boss Health Bar (Exibida diretamente abaixo do HUD durante combate)
+    drawBossHealthBar();
+
     // 13. Modals & Overlays
     if (state === GameState.LEVEL_UP) {
       drawUpgradeModal();
@@ -1692,22 +2135,139 @@
     }
   }
 
-  function drawArenaPerimeter() {
+  function drawBoss() {
+    if (!currentBoss || currentBoss.hp <= 0) return;
+    const b = currentBoss;
+
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.translate(b.x, b.y);
+
+    // 1. Aura de pulso de escudo gigante
+    const pulseR = b.radius * (1.18 + Math.sin(survivalTimer * 6) * 0.08);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Anel secundário ciano rotativo
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    ctx.arc(0, 0, b.radius * 1.35, survivalTimer * 2, survivalTimer * 2 + Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 2. Casco Hexagonal Dreadnought
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3.5;
+    ctx.fillStyle = '#09090b';
+
+    const segs = 6;
+    ctx.beginPath();
+    for (let s = 0; s <= segs; s++) {
+      const a = (s * Math.PI * 2) / segs + Math.PI / 6;
+      const px = Math.cos(a) * b.radius;
+      const py = Math.sin(a) * b.radius;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 3. Torretas Laterais de Plasma
+    ctx.fillStyle = '#18181b';
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.fillRect(-b.radius - 8, -12, 12, 24);
+    ctx.strokeRect(-b.radius - 8, -12, 12, 24);
+    ctx.fillRect(b.radius - 4, -12, 12, 24);
+    ctx.strokeRect(b.radius - 4, -12, 12, 24);
+
+    // 4. Núcleo de Reator Cibernético
+    ctx.shadowColor = '#00f0ff';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#00f0ff';
+    ctx.beginPath();
+    ctx.arc(0, 0, 14 + Math.sin(survivalTimer * 10) * 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Rótulo de Alerta Tático
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ef4444';
+    ctx.font = '700 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ SECTOR TITAN CORE', 0, -b.radius - 14);
+
+    ctx.restore();
+  }
+
+  function drawBossHealthBar() {
+    if (!currentBoss || currentBoss.hp <= 0) return;
+    const barW = 540;
+    const barH = 16;
+    const bx = (V_WIDTH - barW) * 0.5;
+    const by = 58;
+    const pct = Math.max(0, currentBoss.hp / currentBoss.maxHp);
+
+    ctx.save();
+    // Glass background
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.92)';
+    ctx.fillRect(bx - 6, by - 18, barW + 12, barH + 24);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx - 6, by - 18, barW + 12, barH + 24);
+
+    // Title
+    ctx.fillStyle = '#ef4444';
+    ctx.font = '700 11px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`⚠ ${currentBoss.name}`, bx, by - 5);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fafafa';
+    ctx.fillText(`${Math.ceil(currentBoss.hp)} / ${currentBoss.maxHp} HP (${Math.ceil(pct * 100)}%)`, bx + barW, by - 5);
+
+    // HP Bar background
+    ctx.fillStyle = '#18181b';
+    ctx.fillRect(bx, by, barW, barH);
+
+    // HP Bar fill
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(bx, by, barW * pct, barH);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx, by, barW, barH);
+
+    ctx.restore();
+  }
+
+  function drawArenaPerimeter() {
+    const b = getArenaBounds();
+    ctx.save();
+    ctx.strokeStyle = isBossEncounter ? 'rgba(239, 68, 68, 0.45)' : 'rgba(255, 255, 255, 0.16)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([8, 8]);
-    ctx.strokeRect(10, 52, V_WIDTH - 20, V_HEIGHT - 62);
+    ctx.strokeRect(b.minX, b.minY, b.width, b.height);
     ctx.setLineDash([]);
 
     // Cantoneiras técnicas nos quatro vértices
     const corners = [
-      [10, 52],
-      [V_WIDTH - 10, 52],
-      [10, V_HEIGHT - 10],
-      [V_WIDTH - 10, V_HEIGHT - 10]
+      [b.minX, b.minY],
+      [b.maxX, b.minY],
+      [b.minX, b.maxY],
+      [b.maxX, b.maxY]
     ];
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = isBossEncounter ? '#ef4444' : '#ffffff';
     ctx.lineWidth = 2;
     for (const [cx, cy] of corners) {
       ctx.beginPath();
@@ -1715,10 +2275,10 @@
       ctx.stroke();
     }
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.fillStyle = isBossEncounter ? '#ef4444' : 'rgba(255, 255, 255, 0.22)';
     ctx.font = '700 9px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('SECTOR 01 // OPERATIONAL BOUNDARY 1280x720', 22, 68);
+    ctx.fillText(`SECTOR ${Math.floor((level - 1) / 10) + 1} // BOUNDARY ${Math.round(b.width)}x${Math.round(b.height)} // ZOOM ${Math.round(currentZoom * 100)}%`, b.minX + 12, b.minY + 16);
     ctx.restore();
   }
 
@@ -1726,27 +2286,32 @@
     const cellSize = 60;
     const ox = gridOffsetX % cellSize;
     const oy = gridOffsetY % cellSize;
+    const b = getArenaBounds();
+    const minGridX = Math.min(-1200, b.minX - 300);
+    const maxGridX = Math.max(V_WIDTH + 1200, b.maxX + 300);
+    const minGridY = Math.min(-1200, b.minY - 300);
+    const maxGridY = Math.max(V_HEIGHT + 1200, b.maxY + 300);
 
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
-    for (let x = -600 + ox; x <= V_WIDTH + 600; x += cellSize) {
+    for (let x = minGridX + ox; x <= maxGridX; x += cellSize) {
       ctx.beginPath();
-      ctx.moveTo(x, -600);
-      ctx.lineTo(x, V_HEIGHT + 600);
+      ctx.moveTo(x, minGridY);
+      ctx.lineTo(x, maxGridY);
       ctx.stroke();
     }
 
-    for (let y = -600 + oy; y <= V_HEIGHT + 600; y += cellSize) {
+    for (let y = minGridY + oy; y <= maxGridY; y += cellSize) {
       ctx.beginPath();
-      ctx.moveTo(-600, y);
-      ctx.lineTo(V_WIDTH + 600, y);
+      ctx.moveTo(minGridX, y);
+      ctx.lineTo(maxGridX, y);
       ctx.stroke();
     }
 
     // Cruzes técnicas de radar nos nós principais (blueprint minimalista)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-    for (let x = -600 + ox; x <= V_WIDTH + 600; x += cellSize * 2) {
-      for (let y = -600 + oy; y <= V_HEIGHT + 600; y += cellSize * 2) {
+    for (let x = minGridX + ox; x <= maxGridX; x += cellSize * 2) {
+      for (let y = minGridY + oy; y <= maxGridY; y += cellSize * 2) {
         ctx.fillRect(x - 2, y, 5, 1);
         ctx.fillRect(x, y - 2, 1, 5);
       }
@@ -2322,11 +2887,21 @@
     ctx.font = '700 12px "JetBrains Mono", monospace';
     ctx.fillText(timeStr, tx, hpY + 13);
 
-    // Mini Matrix Status
+    // Mini Matrix Status & Aim Assist
     const stX = tx + 100;
     ctx.font = '700 10px "JetBrains Mono", monospace';
     ctx.fillStyle = '#71717a';
     ctx.fillText(`⚡x${projectileCount} ◎x${orbitalShieldCount}${droneCount > 0 ? ` ▲x${droneCount}` : ''}`, stX, hpY + 13);
+
+    const aimBadgeX = stX + 90;
+    ctx.font = '700 9px "JetBrains Mono", monospace';
+    if (hasAimAssist) {
+      ctx.fillStyle = '#00f0ff';
+      ctx.fillText('AIM: AUTO 360°', aimBadgeX, hpY + 13);
+    } else {
+      ctx.fillStyle = '#71717a';
+      ctx.fillText('AIM: MANUAL', aimBadgeX, hpY + 13);
+    }
 
     // 7. Botões de Mute e Pause no Canto Direito
     // Botão Pause
@@ -2374,21 +2949,34 @@
 
   function drawUpgradeModal() {
     // Backdrop
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.90)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
     // Header
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#fafafa';
-    ctx.font = '700 24px "JetBrains Mono", monospace';
-    ctx.shadowColor = '#ffffff';
-    ctx.shadowBlur = 10;
-    ctx.fillText('// UPGRADE PROTOCOL DETECTED', V_WIDTH * 0.5, V_HEIGHT * 0.5 - 160);
+    if (isMegaUpgradeModal) {
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = '700 24px "JetBrains Mono", monospace';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 14;
+      ctx.fillText('// ★ MEGA PROTOCOLO DESBLOQUEADO // TITAN PURGED ★', V_WIDTH * 0.5, V_HEIGHT * 0.5 - 160);
 
-    ctx.fillStyle = '#71717a';
-    ctx.font = '500 14px "JetBrains Mono", monospace';
-    ctx.shadowBlur = 0;
-    ctx.fillText('SELECT MODULE [1, 2, 3] OR CLICK CARD', V_WIDTH * 0.5, V_HEIGHT * 0.5 - 130);
+      ctx.fillStyle = '#fafafa';
+      ctx.font = '600 14px "JetBrains Mono", monospace';
+      ctx.shadowBlur = 0;
+      ctx.fillText('ESCOLHA 1 MEGA UPGRADE LENDÁRIO [1, 2, 3]', V_WIDTH * 0.5, V_HEIGHT * 0.5 - 130);
+    } else {
+      ctx.fillStyle = '#fafafa';
+      ctx.font = '700 24px "JetBrains Mono", monospace';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 10;
+      ctx.fillText('// UPGRADE PROTOCOL DETECTED', V_WIDTH * 0.5, V_HEIGHT * 0.5 - 160);
+
+      ctx.fillStyle = '#71717a';
+      ctx.font = '500 14px "JetBrains Mono", monospace';
+      ctx.shadowBlur = 0;
+      ctx.fillText('SELECT MODULE [1, 2, 3] OR CLICK CARD', V_WIDTH * 0.5, V_HEIGHT * 0.5 - 130);
+    }
 
     // Cards
     const cardW = UPGRADE_CARD_W;
@@ -2405,12 +2993,17 @@
       // Card Background & Technical Border
       ctx.fillStyle = 'rgba(9, 9, 11, 0.98)';
       ctx.fillRect(rx, cardY, cardW, cardH);
-      ctx.strokeStyle = '#27272a';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isMegaUpgradeModal ? '#00f0ff' : '#27272a';
+      ctx.lineWidth = isMegaUpgradeModal ? 2 : 1.5;
+      if (isMegaUpgradeModal) {
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 8;
+      }
       ctx.strokeRect(rx, cardY, cardW, cardH);
+      ctx.shadowBlur = 0;
 
       // Key Badge
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = isMegaUpgradeModal ? '#00f0ff' : '#ffffff';
       ctx.beginPath();
       ctx.arc(rx + 28, cardY + 28, 14, 0, Math.PI * 2);
       ctx.fill();
@@ -2424,7 +3017,7 @@
       ctx.fillText(opt.icon, rx + cardW * 0.5, cardY + 70);
 
       // Title (auto-wrapping / auto-fit to stay strictly inside the card)
-      ctx.fillStyle = '#fafafa';
+      ctx.fillStyle = isMegaUpgradeModal ? '#00f0ff' : '#fafafa';
       ctx.font = '700 14px "JetBrains Mono", monospace';
       const titleLines = wrapText(ctx, opt.title, maxContentWidth);
       const titleLineHeight = 18;
@@ -2435,15 +3028,15 @@
 
       // Install Button UI
       const btnY = cardY + cardH - 42;
-      ctx.fillStyle = '#18181b';
+      ctx.fillStyle = isMegaUpgradeModal ? 'rgba(0, 240, 255, 0.15)' : '#18181b';
       ctx.fillRect(rx + 25, btnY, cardW - 50, 28);
-      ctx.strokeStyle = '#3f3f46';
+      ctx.strokeStyle = isMegaUpgradeModal ? '#00f0ff' : '#3f3f46';
       ctx.lineWidth = 1;
       ctx.strokeRect(rx + 25, btnY, cardW - 50, 28);
 
-      ctx.fillStyle = '#fafafa';
+      ctx.fillStyle = isMegaUpgradeModal ? '#00f0ff' : '#fafafa';
       ctx.font = '700 11px "JetBrains Mono", monospace';
-      ctx.fillText(`INSTALL [${i + 1}]`, rx + cardW * 0.5, btnY + 18);
+      ctx.fillText(isMegaUpgradeModal ? `EQUIPAR [${i + 1}]` : `INSTALL [${i + 1}]`, rx + cardW * 0.5, btnY + 18);
 
       // Description (wrapped multiline, vertically centered between title and install button)
       ctx.fillStyle = '#a1a1aa';
