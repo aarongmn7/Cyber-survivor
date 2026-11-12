@@ -519,6 +519,11 @@
         touchControls.joystick.baseY = V_HEIGHT - 140;
         touchControls.joystick.currX = 140;
         touchControls.joystick.currY = V_HEIGHT - 140;
+
+        // Se estava movendo em diagonal no joystick, preserva o ângulo na soltura
+        if (lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
+          player.angle = lastDiagonalAngle;
+        }
       }
       if (t.identifier === touchControls.dashBtn.touchId) {
         touchControls.dashBtn.touchId = null;
@@ -635,7 +640,7 @@
   const BASE_XP_LEVEL_UP = 50.0;
   const BASE_SPAWN_INTERVAL = 1.10;
 
-  // Player State
+  // Player State & Directional Grace Tracking
   let player = {
     x: V_WIDTH * 0.5,
     y: V_HEIGHT * 0.5,
@@ -647,6 +652,10 @@
     maxHealth: BASE_PLAYER_MAX_HEALTH,
     invulnerableTimer: 0.0
   };
+
+  let lastDiagonalAngle = null;
+  let diagonalGraceTimer = 0.0;
+  const DIAGONAL_GRACE_DURATION = 0.18; // 180ms de janela de tolerância para parar perfeitamente em diagonais
 
   // Progression & Stats
   let score = 0;
@@ -752,6 +761,9 @@
     player.maxHealth = BASE_PLAYER_MAX_HEALTH;
     player.health = player.maxHealth;
     player.invulnerableTimer = 0.0;
+
+    lastDiagonalAngle = null;
+    diagonalGraceTimer = 0.0;
 
     score = 0;
     enemiesKilled = 0;
@@ -1031,6 +1043,10 @@
   function handlePlayerMovement(dt) {
     const bounds = getArenaBounds();
 
+    if (diagonalGraceTimer > 0) {
+      diagonalGraceTimer = Math.max(0, diagonalGraceTimer - dt);
+    }
+
     if (dashActiveTimer > 0) {
       player.vx = dashDirX * player.speed * DASH_SPEED_MULT;
       player.vy = dashDirY * player.speed * DASH_SPEED_MULT;
@@ -1080,7 +1096,24 @@
       const accelFactor = Math.min(1.0, 18.0 * dt);
       player.vx += (targetVx - player.vx) * accelFactor;
       player.vy += (targetVy - player.vy) * accelFactor;
-      player.angle = Math.atan2(normDy, normDx);
+
+      // Detecção precisa de movimento diagonal (ambos eixos com magnitude relevante)
+      const isDiagonalInput = (Math.abs(normDx) > 0.35 && Math.abs(normDy) > 0.35);
+
+      if (isDiagonalInput) {
+        lastDiagonalAngle = Math.atan2(normDy, normDx);
+        diagonalGraceTimer = DIAGONAL_GRACE_DURATION;
+        player.angle = lastDiagonalAngle;
+      } else {
+        // Se uma das teclas acabou de ser solta durante desaceleração de diagonal,
+        // preserva o ângulo diagonal dentro da janela de tolerância para permitir parar na diagonal
+        if (diagonalGraceTimer > 0 && lastDiagonalAngle !== null) {
+          player.angle = lastDiagonalAngle;
+        } else {
+          player.angle = Math.atan2(normDy, normDx);
+          lastDiagonalAngle = null;
+        }
+      }
 
       // Thruster exhaust particles (Monochrome Zinc & White)
       if (Math.random() < 0.6) {
@@ -1104,6 +1137,11 @@
       player.vy += (0 - player.vy) * brakeFactor;
       if (Math.abs(player.vx) < 5) player.vx = 0;
       if (Math.abs(player.vy) < 5) player.vy = 0;
+
+      // Ao soltar todas as teclas/analógico, garante que o ângulo final de repouso seja a diagonal!
+      if (lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
+        player.angle = lastDiagonalAngle;
+      }
     }
 
     player.x += player.vx * dt;

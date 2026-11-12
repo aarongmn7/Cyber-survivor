@@ -27,6 +27,7 @@
 
 ### 1. Navigation, Mobile Virtual Controls & Dynamic Zoom
 - **Desktop Controls**: WASD / Arrow keys for 8-directional movement. Ships rotate smoothly toward movement direction. Space triggers Dash, Q / Shift triggers Overdrive.
+- **Diagonal Stopping & Release Grace**: Integrated 180ms diagonal release grace buffer. Eliminates asynchronous dual-key release variance on keyboards and thumb slide on touchscreens, guaranteeing the interceptor stops facing clean 45°, 135°, 225°, and 315° diagonal angles with front firing alignment preserved.
 - **Mobile Touch Controls (Multi-Touch)**:
   - **Dynamic Analog Virtual Joystick**: Anchored on left/lower screen under the player's thumb. Drags to steer ship velocity and direction (`player.angle = Math.atan2(dy, dx)`).
   - **Tactical On-Screen Action Buttons**: Dedicated bottom-right touch buttons for `[DASH]` and `[OD]` (Overdrive) with real-time radial cooldown/charge indicators.
