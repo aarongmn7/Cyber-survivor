@@ -25,21 +25,24 @@
 
 ## Gameplay Loops & Systems
 
-### 1. Navigation & Dynamic Camera Zoom
-- **Controls**: WASD / Arrow keys for 8-directional movement. Ships rotate smoothly toward movement direction or mouse aiming vector.
+### 1. Navigation, Mobile Virtual Controls & Dynamic Zoom
+- **Desktop Controls**: WASD / Arrow keys for 8-directional movement. Ships rotate smoothly toward movement direction. Space triggers Dash, Q / Shift triggers Overdrive.
+- **Mobile Touch Controls (Multi-Touch)**:
+  - **Dynamic Analog Virtual Joystick**: Anchored on left/lower screen under the player's thumb. Drags to steer ship velocity and direction (`player.angle = Math.atan2(dy, dx)`).
+  - **Tactical On-Screen Action Buttons**: Dedicated bottom-right touch buttons for `[DASH]` and `[OD]` (Overdrive) with real-time radial cooldown/charge indicators.
+  - **Responsive Mobile Viewport**: 100dvh container with `touch-action: none` and `object-fit: contain` to prevent browser pull-to-refresh, address bar jumping, or pinch zoom.
 - **Dynamic Arena & Viewport**: As the player levels up, the camera dynamically zooms out:
   $$\text{Target Zoom} = \max(0.50,\, 1.0 - (\text{level} - 1) \times 0.018)$$
   Arena boundaries dynamically expand according to current zoom factor, allowing fluid navigation across the broader battlefield.
-- **Mouse Coordinate Transform**: All mouse and pointer interactions compute world space positions factored by `currentZoom` and viewport offsets.
 
-### 2. Combat Modes: Manual vs. Aim Assist
-- **Manual Aim (Levels 1–9 / Default)**:
-  - Firing is oriented along ship facing direction or toward mouse cursor.
-  - Projectile laser sight guide rendered from the interceptor's prow.
-  - High responsive base fire rate (no targeting delay).
+### 2. Combat Modes: Fixed Frontal Aim vs. Aim Assist
+- **Fixed Frontal Aim (Levels 1–9 / Default without Aim Assist)**:
+  - Firing is **always oriented straight ahead from the front of the interceptor** (`player.angle`), both in motion and when stationary.
+  - Directional laser sight line projects directly from the ship's nose.
+  - High responsive base fire rate with zero targeting delay.
 - **Aim Assist / Mira Automática 360° (Mega Upgrade)**:
-  - Unlocked exclusively via Sector Titan Boss defeat.
-  - Computes Euclidean distance to active adversaries and locks onto the nearest threat with a neon HUD reticle (`[ ⌖ ]`).
+  - Unlocked exclusively via Sector Titan Boss defeat (Level 10, 20...).
+  - Computes Euclidean distance to active adversaries and locks onto the nearest threat in 360° with a neon HUD reticle (`[ ⌖ ]`).
   - **Initial Balance Penalty**: Fires at 1.45x standard cooldown (`cooldown * 1.45`), requiring player positioning and timing. Can be overclocked in later iterations.
 
 ### 3. Linear Level Progression & Sector Titans (Bosses)

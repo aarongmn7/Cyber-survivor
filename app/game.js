@@ -1057,17 +1057,12 @@
     let dx = 0;
     let dy = 0;
 
-    // 1. Suporte a Arraste de Mouse / Touch
-    if (isPointerDown && pointerTarget) {
-      const pdx = pointerTarget.x - player.x;
-      const pdy = pointerTarget.y - player.y;
-      const pdist = Math.hypot(pdx, pdy);
-      if (pdist > 25) {
-        dx = pdx / pdist;
-        dy = pdy / pdist;
-      }
+    // 1. Suporte a Joystick Virtual Touch (Celular / Tablet)
+    if (touchControls.joystick.active && touchControls.joystick.strength > 0.05) {
+      dx = touchControls.joystick.dx * touchControls.joystick.strength;
+      dy = touchControls.joystick.dy * touchControls.joystick.strength;
     } else {
-      // 2. Teclado WASD / Setas
+      // 2. Teclado WASD / Setas (Desktop)
       if (keys['w'] || keys['keyw'] || keys['arrowup']) dy -= 1;
       if (keys['s'] || keys['keys'] || keys['arrowdown']) dy += 1;
       if (keys['a'] || keys['keya'] || keys['arrowleft']) dx -= 1;
@@ -1076,26 +1071,27 @@
 
     if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy);
-      dx /= len;
-      dy /= len;
+      const normDx = dx / len;
+      const normDy = dy / len;
 
-      const targetVx = dx * player.speed;
-      const targetVy = dy * player.speed;
+      const targetSpeed = player.speed * Math.min(1.0, len);
+      const targetVx = normDx * targetSpeed;
+      const targetVy = normDy * targetSpeed;
       const accelFactor = Math.min(1.0, 18.0 * dt);
       player.vx += (targetVx - player.vx) * accelFactor;
       player.vy += (targetVy - player.vy) * accelFactor;
-      player.angle = Math.atan2(dy, dx);
+      player.angle = Math.atan2(normDy, normDx);
 
       // Thruster exhaust particles (Monochrome Zinc & White)
       if (Math.random() < 0.6) {
-        const tx = player.x - dx * 20;
-        const ty = player.y - dy * 20;
+        const tx = player.x - normDx * 20;
+        const ty = player.y - normDy * 20;
         const pColors = ['#ffffff', '#e4e4e7', '#a1a1aa', '#71717a'];
         particles.push({
           x: tx + (Math.random() - 0.5) * 8,
           y: ty + (Math.random() - 0.5) * 8,
-          vx: -dx * (60 + Math.random() * 60) + (Math.random() - 0.5) * 20,
-          vy: -dy * (60 + Math.random() * 60) + (Math.random() - 0.5) * 20,
+          vx: -normDx * (60 + Math.random() * 60) + (Math.random() - 0.5) * 20,
+          vy: -normDy * (60 + Math.random() * 60) + (Math.random() - 0.5) * 20,
           color: pColors[Math.floor(Math.random() * pColors.length)],
           size: 2.5 + Math.random() * 3,
           life: 0.35,
@@ -1145,16 +1141,10 @@
           playSynthSound('laser');
         }
       } else {
-        // Modo Manual: atira na direção do mouse ou do nariz da nave com cadência mais rápida
-        let tx, ty;
-        if (hasMovedMouse && mouseWorldPos) {
-          tx = mouseWorldPos.x;
-          ty = mouseWorldPos.y;
-        } else {
-          tx = player.x + Math.cos(player.angle) * 220;
-          ty = player.y + Math.sin(player.angle) * 220;
-        }
-        fireLasers(tx, ty);
+        // Modo Frontal Fixo (sem Aim Assist): sempre mirado para a frente da nave!
+        const fx = player.x + Math.cos(player.angle) * 220;
+        const fy = player.y + Math.sin(player.angle) * 220;
+        fireLasers(fx, fy);
         laserCooldownTimer = currentCooldown;
         playSynthSound('laser');
       }
@@ -2210,27 +2200,22 @@
       drawPlayer();
       if (hasOrbitalShield) drawOrbitalShields();
 
-      // Guia Laser Manual (Quando o jogador ainda não desbloqueou o Aim Assist)
+      // Guia Laser Frontal Fixo (Quando o jogador ainda não desbloqueou o Aim Assist)
       if (!hasAimAssist && state === GameState.PLAYING) {
-        let aimAng;
-        if (hasMovedMouse && mouseWorldPos) {
-          aimAng = Math.atan2(mouseWorldPos.y - player.y, mouseWorldPos.x - player.x);
-        } else {
-          aimAng = player.angle;
-        }
+        const aimAng = player.angle; // Sempre alinhado à frente da nave!
 
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.lineWidth = 1.2;
         ctx.setLineDash([4, 6]);
         ctx.beginPath();
         ctx.moveTo(player.x, player.y);
-        ctx.lineTo(player.x + Math.cos(aimAng) * 150, player.y + Math.sin(aimAng) * 150);
+        ctx.lineTo(player.x + Math.cos(aimAng) * 160, player.y + Math.sin(aimAng) * 160);
         ctx.stroke();
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
         ctx.beginPath();
-        ctx.arc(player.x + Math.cos(aimAng) * 150, player.y + Math.sin(aimAng) * 150, 2, 0, Math.PI * 2);
+        ctx.arc(player.x + Math.cos(aimAng) * 160, player.y + Math.sin(aimAng) * 160, 2.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -2275,9 +2260,10 @@
     ctx.restore(); // Fecha Screen Shake
 
     // HUD e Overlays Fixos (Invariantes ao zoom)
-    // 10. Tactical Radar Sensor (Canto Inferior Direito)
+    // 10. Tactical Radar Sensor & Controles Virtuais Touch
     if (state !== GameState.GAME_OVER) {
       drawTacticalRadar();
+      drawTouchControls();
     }
 
     // 11. Elite Warning Banner
@@ -2817,9 +2803,9 @@
   }
 
   function drawTacticalRadar() {
-    const radarX = V_WIDTH - 75;
-    const radarY = V_HEIGHT - 75;
-    const radarRadius = 46;
+    const radarX = V_WIDTH - 65;
+    const radarY = 118;
+    const radarRadius = 38;
     const detectionRange = 750;
 
     ctx.save();
@@ -2891,7 +2877,147 @@
     ctx.fillStyle = '#71717a';
     ctx.font = '700 8px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('RADAR 360°', radarX, radarY + radarRadius + 14);
+    ctx.fillText('RADAR 360°', radarX, radarY + radarRadius + 13);
+
+    ctx.restore();
+  }
+
+  function drawTouchControls() {
+    if (state !== GameState.PLAYING) return;
+
+    ctx.save();
+
+    // 1. Virtual Joystick Analógico Dinâmico
+    const joy = touchControls.joystick;
+    if (joy.active) {
+      // Base externa do joystick sob o polegar
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(9, 9, 11, 0.50)';
+      ctx.beginPath();
+      ctx.arc(joy.baseX, joy.baseY, joy.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cruz tática na base
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(joy.baseX - joy.radius * 0.7, joy.baseY); ctx.lineTo(joy.baseX + joy.radius * 0.7, joy.baseY);
+      ctx.moveTo(joy.baseX, joy.baseY - joy.radius * 0.7); ctx.lineTo(joy.baseX, joy.baseY + joy.radius * 0.7);
+      ctx.stroke();
+
+      // Haste conectora
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(joy.baseX, joy.baseY);
+      ctx.lineTo(joy.currX, joy.currY);
+      ctx.stroke();
+
+      // Knob interno
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.75)';
+      ctx.beginPath();
+      ctx.arc(joy.currX, joy.currY, joy.knobRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(joy.currX, joy.currY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      // Indicador de repouso no canto inferior esquerdo para guiar o toque
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.arc(140, V_HEIGHT - 140, 52, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.font = '700 10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('NAV // STICK', 140, V_HEIGHT - 136);
+    }
+
+    // 2. Botão de DASH (Canto Inferior Direito)
+    const dash = touchControls.dashBtn;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.78)';
+    ctx.beginPath();
+    ctx.arc(dash.x, dash.y, dash.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    const isDashReady = dashCooldownTimer <= 0;
+    ctx.strokeStyle = isDashReady ? '#ffffff' : 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = isDashReady ? 2 : 1.5;
+    if (isDashReady) {
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 8;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Arco de cooldown do Dash
+    if (!isDashReady) {
+      const dashPct = 1 - (dashCooldownTimer / DASH_COOLDOWN);
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(dash.x, dash.y, dash.radius, -Math.PI * 0.5, -Math.PI * 0.5 + dashPct * Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = isDashReady ? '#ffffff' : '#71717a';
+    ctx.font = '700 12px "JetBrains Mono", monospace';
+    ctx.fillText('DASH', dash.x, dash.y + 4);
+    ctx.fillStyle = '#52525b';
+    ctx.font = '600 8px "JetBrains Mono", monospace';
+    ctx.fillText('[SPACE]', dash.x, dash.y + 16);
+
+    // 3. Botão de OVERDRIVE (Canto Inferior Direito Acima do Dash)
+    const od = touchControls.overdriveBtn;
+    const isOdReady = overdriveCharge >= 100;
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.78)';
+    ctx.beginPath();
+    ctx.arc(od.x, od.y, od.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (isOdReady) {
+      const pulseBlur = 10 + Math.sin(survivalTimer * 8) * 4;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = pulseBlur;
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const odPct = Math.min(1, overdriveCharge / 100);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(od.x, od.y, od.radius, -Math.PI * 0.5, -Math.PI * 0.5 + odPct * Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = isOdReady ? '#00f0ff' : '#71717a';
+    ctx.font = '700 11px "JetBrains Mono", monospace';
+    ctx.fillText(isOdReady ? 'OD READY' : `OD ${Math.floor(overdriveCharge)}%`, od.x, od.y + 3);
+    ctx.fillStyle = '#52525b';
+    ctx.font = '600 8px "JetBrains Mono", monospace';
+    ctx.fillText('[Q]', od.x, od.y + 14);
 
     ctx.restore();
   }
