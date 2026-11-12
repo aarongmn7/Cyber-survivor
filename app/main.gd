@@ -37,6 +37,8 @@ var player_speed: float = BASE_PLAYER_SPEED
 var player_health: float = BASE_PLAYER_MAX_HEALTH
 var player_max_health: float = BASE_PLAYER_MAX_HEALTH
 var invulnerable_timer: float = 0.0
+var cursor_pos: Vector2 = Vector2.ZERO
+var cursor_active: bool = false
 
 # Stats & Progression
 var score: int = 0
@@ -292,7 +294,8 @@ func handle_player_movement(delta: float) -> void:
 	if move_input != Vector2.ZERO:
 		move_input = move_input.normalized()
 		player_velocity = player_velocity.move_toward(move_input * player_speed, 2600.0 * delta)
-		player_angle = move_input.angle()
+		if not cursor_active:
+			player_angle = move_input.angle()
 		# Thruster particles
 		if randf() < 0.6:
 			var thruster_pos := player_pos - move_input * 16.0
@@ -317,32 +320,20 @@ func handle_player_movement(delta: float) -> void:
 	var margin: float = 30.0
 	player_pos.x = clamp(player_pos.x, margin, vp_size.x - margin)
 	player_pos.y = clamp(player_pos.y, margin + 45.0, vp_size.y - margin)
+	if cursor_active and player_pos.distance_to(cursor_pos) > 5.0:
+		player_angle = (cursor_pos - player_pos).angle()
 	grid_offset += player_velocity * delta * 0.35
 
 func handle_auto_combat(delta: float) -> void:
 	laser_cooldown_timer -= delta
 	var current_cooldown: float = BASE_LASER_COOLDOWN * fire_rate_multiplier
 	if laser_cooldown_timer <= 0.0:
-		var target: Dictionary = find_nearest_enemy()
-		if not target.is_empty() and target.has("pos"):
-			fire_lasers(Vector2(target["pos"]))
-			laser_cooldown_timer = current_cooldown
-			test_shot_fired = true
+		fire_lasers()
+		laser_cooldown_timer = current_cooldown
+		test_shot_fired = true
 
-func find_nearest_enemy() -> Dictionary:
-	var closest_enemy = null
-	var closest_dist: float = 999999.0
-	for enemy in enemies:
-		var d: float = player_pos.distance_to(enemy.pos)
-		if d < closest_dist:
-			closest_dist = d
-			closest_enemy = enemy
-	if closest_enemy != null:
-		return closest_enemy
-	return {}
-
-func fire_lasers(target_pos: Vector2) -> void:
-	var base_dir := (target_pos - player_pos).normalized()
+func fire_lasers() -> void:
+	var base_dir := Vector2.from_angle(player_angle)
 	if base_dir == Vector2.ZERO:
 		base_dir = Vector2.RIGHT
 		
@@ -351,14 +342,14 @@ func fire_lasers(target_pos: Vector2) -> void:
 		for a in angles:
 			var dir := base_dir.rotated(a)
 			lasers.append({
-				"pos": player_pos + dir * 18.0,
+				"pos": player_pos + dir * 20.0,
 				"vel": dir * BASE_LASER_SPEED,
 				"damage": BASE_LASER_DAMAGE,
 				"life": 1.4
 			})
 	else:
 		lasers.append({
-			"pos": player_pos + base_dir * 18.0,
+			"pos": player_pos + base_dir * 20.0,
 			"vel": base_dir * BASE_LASER_SPEED,
 			"damage": BASE_LASER_DAMAGE,
 			"life": 1.4
@@ -683,6 +674,14 @@ func update_floating_texts(delta: float) -> void:
 
 # Input handling for menus and restart
 func _unhandled_input(event: InputEvent) -> void:
+	if state == GameState.PLAYING:
+		if event is InputEventMouseMotion:
+			if event.position.y > 55.0:
+				cursor_pos = event.position
+				cursor_active = true
+		elif event is InputEventKey and event.pressed:
+			if event.keycode in [KEY_W, KEY_A, KEY_S, KEY_D, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]:
+				cursor_active = false
 	if state == GameState.LEVEL_UP:
 		if event is InputEventKey and event.pressed:
 			if event.keycode == KEY_1:
@@ -1010,6 +1009,7 @@ func process_self_test(delta: float) -> void:
 	frame_counter += 1
 	# 1. Test move
 	player_pos += Vector2(1, 0) * player_speed * delta
+	player_angle = 0.0
 	test_moved = true
 	
 	# 2. Test act

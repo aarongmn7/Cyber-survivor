@@ -238,6 +238,12 @@
     keys[codeLower] = true;
     keys[e.code] = true;
 
+    if (keyLower === 'w' || keyLower === 'a' || keyLower === 's' || keyLower === 'd' ||
+        codeLower === 'keyw' || codeLower === 'keya' || codeLower === 'keys' || codeLower === 'keyd' ||
+        keyLower.startsWith('arrow')) {
+      cursorActive = false;
+    }
+
     if (state === GameState.LEVEL_UP) {
       if (keyLower === '1' || codeLower === 'digit1') selectUpgrade(0);
       if (keyLower === '2' || codeLower === 'digit2') selectUpgrade(1);
@@ -264,9 +270,11 @@
     }
   });
 
-  // Pointer & Touch Controls (Suporte Mobile e Mouse Drag)
+  // Pointer & Touch Controls (Suporte Mobile, Mouse Drag e Mira Direcional por Cursor)
   let isPointerDown = false;
   let pointerTarget = null;
+  let cursorPos = null;
+  let cursorActive = false;
 
   function getCanvasMousePos(e) {
     const rect = canvas.getBoundingClientRect();
@@ -285,12 +293,19 @@
     if (m.y > 55 && state === GameState.PLAYING) {
       isPointerDown = true;
       pointerTarget = m;
+      cursorPos = m;
+      cursorActive = true;
     }
   });
 
   window.addEventListener('mousemove', (e) => {
-    if (isPointerDown && state === GameState.PLAYING) {
-      pointerTarget = getCanvasMousePos(e);
+    const m = getCanvasMousePos(e);
+    if (m.y > 55 && state === GameState.PLAYING) {
+      cursorPos = m;
+      cursorActive = true;
+      if (isPointerDown) {
+        pointerTarget = m;
+      }
     }
   });
 
@@ -312,18 +327,27 @@
       if (m.y > 55 && state === GameState.PLAYING) {
         isPointerDown = true;
         pointerTarget = m;
+        cursorPos = m;
+        cursorActive = true;
       }
     }
   }, { passive: true });
 
   window.addEventListener('touchmove', (e) => {
-    if (isPointerDown && e.touches.length > 0) {
+    if (e.touches.length > 0) {
       const touch = e.touches[0];
       const rect = canvas.getBoundingClientRect();
-      pointerTarget = {
+      const m = {
         x: (touch.clientX - rect.left) * (canvas.width / rect.width),
         y: (touch.clientY - rect.top) * (canvas.height / rect.height)
       };
+      if (m.y > 55 && state === GameState.PLAYING) {
+        cursorPos = m;
+        cursorActive = true;
+        if (isPointerDown) {
+          pointerTarget = m;
+        }
+      }
     }
   }, { passive: true });
 
@@ -575,6 +599,11 @@
     floatingTexts.length = 0;
     empWaves.length = 0;
 
+    isPointerDown = false;
+    pointerTarget = null;
+    cursorPos = null;
+    cursorActive = false;
+
     spawnTimer = 0.0;
     currentSpawnInterval = BASE_SPAWN_INTERVAL;
     screenShake = 0.0;
@@ -816,6 +845,9 @@
       const pdx = pointerTarget.x - player.x;
       const pdy = pointerTarget.y - player.y;
       const pdist = Math.hypot(pdx, pdy);
+      if (pdist > 4) {
+        player.angle = Math.atan2(pdy, pdx);
+      }
       if (pdist > 25) {
         dx = pdx / pdist;
         dy = pdy / pdist;
@@ -838,7 +870,10 @@
       const accelFactor = Math.min(1.0, 18.0 * dt);
       player.vx += (targetVx - player.vx) * accelFactor;
       player.vy += (targetVy - player.vy) * accelFactor;
-      player.angle = Math.atan2(dy, dx);
+
+      if (!(isPointerDown && pointerTarget) && !cursorActive) {
+        player.angle = Math.atan2(dy, dx);
+      }
 
       // Thruster exhaust particles (Monochrome Zinc & White)
       if (Math.random() < 0.6) {
@@ -872,6 +907,15 @@
     player.x = Math.max(margin, Math.min(V_WIDTH - margin, player.x));
     player.y = Math.max(margin + 45, Math.min(V_HEIGHT - margin, player.y));
 
+    // Orient ship nose toward active cursor/finger so shots disperse across space following cursor/finger
+    if (cursorActive && cursorPos && !(isPointerDown && pointerTarget)) {
+      const cdx = cursorPos.x - player.x;
+      const cdy = cursorPos.y - player.y;
+      if (Math.hypot(cdx, cdy) > 5) {
+        player.angle = Math.atan2(cdy, cdx);
+      }
+    }
+
     gridOffsetX += player.vx * dt * 0.35;
     gridOffsetY += player.vy * dt * 0.35;
   }
@@ -882,31 +926,14 @@
     const currentCooldown = BASE_LASER_COOLDOWN * fireRateMultiplier * speedBoost;
 
     if (laserCooldownTimer <= 0) {
-      const nearest = findNearestEnemy();
-      if (nearest) {
-        fireLasers(nearest.x, nearest.y);
-        laserCooldownTimer = currentCooldown;
-        playSynthSound('laser');
-      }
+      fireLasers();
+      laserCooldownTimer = currentCooldown;
+      playSynthSound('laser');
     }
   }
 
-  function findNearestEnemy() {
-    let closest = null;
-    let minDist = Infinity;
-    for (let i = 0; i < enemies.length; i++) {
-      const e = enemies[i];
-      const d = Math.hypot(player.x - e.x, player.y - e.y);
-      if (d < minDist) {
-        minDist = d;
-        closest = e;
-      }
-    }
-    return closest;
-  }
-
-  function fireLasers(tx, ty) {
-    const baseAngle = Math.atan2(ty - player.y, tx - player.x);
+  function fireLasers() {
+    const baseAngle = player.angle;
     const spreadStep = 0.12;
     const startAngle = baseAngle - ((projectileCount - 1) * 0.5) * spreadStep;
 
@@ -916,8 +943,8 @@
       const dmg = (BASE_LASER_DAMAGE + (level - 1) * 1.5) * (isCrit ? critMultiplier : 1.0);
 
       lasers.push({
-        x: player.x + Math.cos(ang) * 18,
-        y: player.y + Math.sin(ang) * 18,
+        x: player.x + Math.cos(ang) * 20,
+        y: player.y + Math.sin(ang) * 20,
         vx: Math.cos(ang) * BASE_LASER_SPEED,
         vy: Math.sin(ang) * BASE_LASER_SPEED,
         damage: dmg,
