@@ -1,0 +1,8 @@
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:21:32Z","tool":"project_pins_list","ts":1794424892}
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:53:07Z","tool":"project_pins_list","ts":1794426787}
+{"caller":"ui","duration_ms":1,"kind":"tool_call","ok":true,"params":{"project":"C:\\Users\\a²\\Downloads\\ECO-AARON-master\\pessoal\\projetos pessoais\\cyber survivor"},"time":"2026-11-11T19:53:35Z","tool":"project_preview","ts":1794426815}
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:54:20Z","tool":"project_pins_list","ts":1794426860}
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:56:09Z","tool":"project_pins_list","ts":1794426969}
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:56:17Z","tool":"project_pins_list","ts":1794426977}
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:56:40Z","tool":"project_pins_list","ts":1794427000}
+{"caller":"ui","duration_ms":0,"kind":"tool_call","ok":true,"params":{},"time":"2026-11-11T19:58:54Z","tool":"project_pins_list","ts":1794427134}

@@ -1,0 +1,26 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/", "destination": "/app/index.html" },
+    { "source": "/style.css", "destination": "/app/style.css" },
+    { "source": "/game.js", "destination": "/app/game.js" },
+    { "source": "/logo.svg", "destination": "/app/logo.svg" },
+    { "source": "/app/(.*)", "destination": "/app/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
+}

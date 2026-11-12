@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "values": [
+    {
+      "name": "player_speed",
+      "group": "movement",
+      "value": 260.0,
+      "unit": "px/s",
+      "estimated": true
+    },
+    {
+      "name": "player_max_health",
+      "group": "health",
+      "value": 100.0,
+      "unit": "hp",
+      "estimated": true
+    },
+    {
+      "name": "laser_cooldown",
+      "group": "combat",
+      "value": 0.4,
+      "unit": "s",
+      "estimated": true
+    },
+    {
+      "name": "laser_damage",
+      "group": "combat",
+      "value": 25.0,
+      "unit": "dmg",
+      "estimated": true
+    },
+    {
+      "name": "laser_speed",
+      "group": "combat",
+      "value": 650.0,
+      "unit": "px/s",
+      "estimated": true
+    },
+    {
+      "name": "triple_shot_spread",
+      "group": "combat",
+      "value": 0.26,
+      "unit": "rad",
+      "estimated": true
+    },
+    {
+      "name": "orbital_shield_speed",
+      "group": "combat",
+      "value": 2.8,
+      "unit": "rad/s",
+      "estimated": true
+    },
+    {
+      "name": "orbital_shield_damage",
+      "group": "combat",
+      "value": 45.0,
+      "unit": "dmg",
+      "estimated": true
+    },
+    {
+      "name": "xp_magnet_radius",
+      "group": "progression",
+      "value": 150.0,
+      "unit": "px",
+      "estimated": true
+    },
+    {
+      "name": "base_xp_level_up",
+      "group": "progression",
+      "value": 50.0,
+      "unit": "xp",
+      "estimated": true
+    },
+    {
+      "name": "spawn_interval_initial",
+      "group": "waves",
+      "value": 1.1,
+      "unit": "s",
+      "estimated": true
+    }
+  ]
+}
