@@ -1,82 +1,110 @@
 {
-  "version": 1,
+  "version": 2,
   "values": [
     {
       "name": "player_speed",
       "group": "movement",
       "value": 260.0,
       "unit": "px/s",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "player_max_health",
       "group": "health",
       "value": 100.0,
       "unit": "hp",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "laser_cooldown",
       "group": "combat",
       "value": 0.4,
       "unit": "s",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "laser_damage",
       "group": "combat",
       "value": 25.0,
       "unit": "dmg",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "laser_speed",
       "group": "combat",
       "value": 650.0,
       "unit": "px/s",
-      "estimated": true
+      "estimated": false
+    },
+    {
+      "name": "aim_assist_penalty",
+      "group": "combat",
+      "value": 1.45,
+      "unit": "multiplier",
+      "estimated": false
     },
     {
       "name": "triple_shot_spread",
       "group": "combat",
       "value": 0.26,
       "unit": "rad",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "orbital_shield_speed",
       "group": "combat",
       "value": 2.8,
       "unit": "rad/s",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "orbital_shield_damage",
       "group": "combat",
       "value": 45.0,
       "unit": "dmg",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "xp_magnet_radius",
       "group": "progression",
       "value": 150.0,
       "unit": "px",
-      "estimated": true
+      "estimated": false
     },
     {
       "name": "base_xp_level_up",
       "group": "progression",
       "value": 50.0,
       "unit": "xp",
-      "estimated": true
+      "estimated": false
     },
     {
-      "name": "spawn_interval_initial",
-      "group": "waves",
-      "value": 1.1,
-      "unit": "s",
-      "estimated": true
+      "name": "boss_encounter_interval",
+      "group": "progression",
+      "value": 10,
+      "unit": "levels",
+      "estimated": false
+    },
+    {
+      "name": "boss_base_health",
+      "group": "combat",
+      "value": 1000.0,
+      "unit": "hp",
+      "estimated": false
+    },
+    {
+      "name": "min_camera_zoom",
+      "group": "camera",
+      "value": 0.5,
+      "unit": "ratio",
+      "estimated": false
+    },
+    {
+      "name": "zoom_step_per_level",
+      "group": "camera",
+      "value": 0.018,
+      "unit": "ratio/lvl",
+      "estimated": false
     }
   ]
 }
