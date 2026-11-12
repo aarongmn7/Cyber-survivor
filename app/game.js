@@ -12,16 +12,37 @@
   const V_WIDTH = 1280;
   const V_HEIGHT = 720;
 
-  // Aaron Nascimento Monogram Logo (SVG Vector white - Dark & Clean)
+  // Aaron Nascimento Monogram Spaceship (Pontinha frontal, Asas Stealth, Logo AN central & Rabinho com propulsor)
   const LOGO_SVG_DATA = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
     <defs>
-      <clipPath id="innerCircle">
-        <circle cx="50" cy="50" r="37" />
+      <clipPath id="innerShipCircle">
+        <circle cx="50" cy="50" r="23" />
       </clipPath>
     </defs>
-    <circle cx="50" cy="50" r="45" stroke="#ffffff" stroke-width="6" fill="none" />
-    <g clip-path="url(#innerCircle)">
-      <g transform="translate(16.25, 0) skewX(-18)">
+    <!-- Asas Stealth Delta e Fuselagem -->
+    <polygon points="50,5 64,24 82,68 86,88 74,84 66,74 58,78 50,78 42,78 34,74 26,84 14,88 18,68 36,24" 
+             fill="#09090b" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round" />
+    <!-- Aletas Estabilizadoras Traseiras (Rabinho) -->
+    <polygon points="26,84 20,95 32,91 35,78" fill="#18181b" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" />
+    <polygon points="74,84 80,95 68,91 65,78" fill="#18181b" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" />
+    <!-- Bocal do Propulsor e Chama Neon -->
+    <polygon points="43,78 57,78 55,87 45,87" fill="#27272a" stroke="#ffffff" stroke-width="1.8" />
+    <polygon points="46,87 54,87 50,97" fill="#00f0ff" opacity="0.95" />
+    <polygon points="47.5,87 52.5,87 50,93" fill="#ffffff" />
+    <!-- Ranhuras de Painéis -->
+    <line x1="38" y1="36" x2="26" y2="68" stroke="#ffffff" stroke-width="1.2" opacity="0.5" />
+    <line x1="62" y1="36" x2="74" y2="68" stroke="#ffffff" stroke-width="1.2" opacity="0.5" />
+    <!-- Canhões Laser de Asa -->
+    <line x1="18" y1="64" x2="18" y2="54" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+    <line x1="82" y1="64" x2="82" y2="54" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+    <!-- Pontinha da Nave (Bico / Cockpit Stealth) -->
+    <polygon points="50,4 56,18 50,22 44,18" fill="#ffffff" />
+    <line x1="50" y1="4" x2="50" y2="23" stroke="#09090b" stroke-width="1.5" />
+    <polygon points="50,14 53,20 50,22 47,20" fill="#00f0ff" />
+    <!-- Núcleo Logo AN -->
+    <circle cx="50" cy="50" r="27" stroke="#ffffff" stroke-width="3.8" fill="#09090b" />
+    <g clip-path="url(#innerShipCircle)">
+      <g transform="translate(50, 50) scale(0.60) translate(-50, -50) translate(16.25, 0) skewX(-18)">
         <line x1="50" y1="-20" x2="50" y2="120" stroke="#ffffff" stroke-width="2" opacity="0.4" />
         <polygon points="30,-20 46,-20 46,120 30,120" fill="#ffffff" />
         <polygon points="-50,-20 30,-20 -2,120 -50,120" fill="#ffffff" />
@@ -1735,28 +1756,19 @@
   function drawPlayer() {
     ctx.save();
     ctx.translate(player.x, player.y);
-    ctx.rotate(player.angle);
+    ctx.rotate(player.angle + Math.PI * 0.5);
 
     const isHit = player.invulnerableTimer > 0 && Math.floor(player.invulnerableTimer * 12) % 2 === 0;
 
-    // Chevron tático frontal (bico indicador de direção de avanço)
-    ctx.strokeStyle = isHit ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(27, -5);
-    ctx.lineTo(33, 0);
-    ctx.lineTo(27, 5);
-    ctx.stroke();
-
-    // Rastro e renderização do Logo
+    // Rastro e renderização da Nave
     if (isHit) {
       ctx.globalAlpha = 0.35;
     } else {
-      ctx.shadowColor = '#ffffff';
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
     }
 
-    const shipSize = 42;
+    const shipSize = 46;
     if (playerLogoImg.complete && playerLogoImg.naturalWidth !== 0) {
       ctx.drawImage(playerLogoImg, -shipSize * 0.5, -shipSize * 0.5, shipSize, shipSize);
     } else {
@@ -1851,8 +1863,8 @@
       ctx.globalAlpha = alpha;
       ctx.save();
       ctx.translate(g.x, g.y);
-      ctx.rotate(g.angle);
-      const shipSize = 42;
+      ctx.rotate(g.angle + Math.PI * 0.5);
+      const shipSize = 46;
       if (playerLogoImg.complete && playerLogoImg.naturalWidth !== 0) {
         ctx.drawImage(playerLogoImg, -shipSize * 0.5, -shipSize * 0.5, shipSize, shipSize);
       }
