@@ -68,6 +68,9 @@
         audioCtx = new AudioContextClass();
       }
     }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
   }
 
   function toggleMute() {
@@ -294,11 +297,35 @@
     }
   });
 
-  // Pointer & Touch Controls (Suporte Mobile, Mouse Aim e Drag)
-  let isPointerDown = false;
-  let pointerTarget = null;
-  let mouseWorldPos = { x: V_WIDTH * 0.5, y: V_HEIGHT * 0.5 - 100 };
-  let hasMovedMouse = false;
+  // Touch & Mobile Virtual Controls
+  let isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const touchControls = {
+    joystick: {
+      active: false,
+      touchId: null,
+      baseX: 140,
+      baseY: V_HEIGHT - 140,
+      currX: 140,
+      currY: V_HEIGHT - 140,
+      radius: 65,
+      knobRadius: 28,
+      dx: 0,
+      dy: 0,
+      strength: 0
+    },
+    dashBtn: {
+      x: V_WIDTH - 100,
+      y: V_HEIGHT - 100,
+      radius: 42,
+      touchId: null
+    },
+    overdriveBtn: {
+      x: V_WIDTH - 100,
+      y: V_HEIGHT - 205,
+      radius: 35,
+      touchId: null
+    }
+  };
 
   function getCanvasMousePos(e) {
     const rect = canvas.getBoundingClientRect();
@@ -319,77 +346,205 @@
     };
   }
 
-  canvas.addEventListener('mousedown', (e) => {
+  // Multi-Touch Handlers (Celular / Tablet)
+  function handleTouchStart(e) {
     initAudio();
-    const m = getCanvasMousePos(e);
-    mouseWorldPos = screenToWorld(m.x, m.y);
-    hasMovedMouse = true;
-    // Não ativa arrasto se clicar no HUD
-    if (m.y > 55 && state === GameState.PLAYING) {
-      isPointerDown = true;
-      pointerTarget = m;
-    }
-  });
+    isTouchDevice = true;
+    if (e.cancelable) e.preventDefault();
 
-  window.addEventListener('mousemove', (e) => {
-    const m = getCanvasMousePos(e);
-    mouseWorldPos = screenToWorld(m.x, m.y);
-    hasMovedMouse = true;
-    if (isPointerDown && state === GameState.PLAYING) {
-      pointerTarget = m;
-    }
-  });
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
 
-  window.addEventListener('mouseup', () => {
-    isPointerDown = false;
-    pointerTarget = null;
-  });
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const tx = (t.clientX - rect.left) * scaleX;
+      const ty = (t.clientY - rect.top) * scaleY;
 
-  // Touch Support (Celular / Tablet)
-  canvas.addEventListener('touchstart', (e) => {
-    initAudio();
-    if (e.touches.length > 0) {
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const m = {
-        x: (touch.clientX - rect.left) * (canvas.width / rect.width),
-        y: (touch.clientY - rect.top) * (canvas.height / rect.height)
-      };
-      if (m.y > 55 && state === GameState.PLAYING) {
-        isPointerDown = true;
-        pointerTarget = m;
+      // 1. Botões do HUD (Mute e Pause)
+      if (ty >= 10 && ty <= 45) {
+        if (tx >= V_WIDTH - 95 && tx <= V_WIDTH - 20) {
+          toggleMute();
+          continue;
+        }
+        if (tx >= V_WIDTH - 180 && tx <= V_WIDTH - 105) {
+          togglePause();
+          continue;
+        }
+      }
+
+      // 2. Despausar ao tocar na tela
+      if (state === GameState.PAUSED) {
+        togglePause();
+        continue;
+      }
+
+      // 3. Seleção de Cartas de Upgrade no Mobile
+      if (state === GameState.LEVEL_UP) {
+        const cardW = UPGRADE_CARD_W;
+        const cardH = UPGRADE_CARD_H;
+        const cardGap = UPGRADE_CARD_GAP;
+        const startX = (V_WIDTH - (3 * cardW + 2 * cardGap)) * 0.5;
+        const cardY = (V_HEIGHT - cardH) * 0.5 + 20;
+
+        for (let j = 0; j < upgradeOptions.length; j++) {
+          const rx = startX + j * (cardW + cardGap);
+          if (tx >= rx && tx <= rx + cardW && ty >= cardY && ty <= cardY + cardH) {
+            selectUpgrade(j);
+            break;
+          }
+        }
+        continue;
+      }
+
+      // 4. Tela de Game Over no Mobile
+      if (state === GameState.GAME_OVER) {
+        const cx = V_WIDTH * 0.5;
+        const cy = V_HEIGHT * 0.5;
+
+        // Restart
+        const btnX = cx - 140;
+        const btnY = cy + 90;
+        const btnW = 280;
+        const btnH = 42;
+        if (tx >= btnX && tx <= btnX + btnW && ty >= btnY && ty <= btnY + btnH) {
+          resetGame();
+          continue;
+        }
+
+        // GitHub
+        const ghX = cx - 145;
+        const ghY = cy + 145;
+        const ghW = 140;
+        const ghH = 36;
+        if (tx >= ghX && tx <= ghX + ghW && ty >= ghY && ty <= ghY + ghH) {
+          window.open('https://github.com/aarongmn7', '_blank');
+          continue;
+        }
+
+        // Portfolio
+        const portX = cx + 5;
+        const portY = cy + 145;
+        const portW = 140;
+        const portH = 36;
+        if (tx >= portX && tx <= portX + portW && ty >= portY && ty <= portY + portH) {
+          window.open('https://aaron.dev.br/', '_blank');
+          continue;
+        }
+        continue;
+      }
+
+      // 5. Controles Táticos de Gameplay (Modo PLAYING)
+      if (state === GameState.PLAYING) {
+        // Botão DASH (Canto Inferior Direito)
+        const dDash = Math.hypot(tx - touchControls.dashBtn.x, ty - touchControls.dashBtn.y);
+        if (dDash <= touchControls.dashBtn.radius + 18) {
+          touchControls.dashBtn.touchId = t.identifier;
+          triggerDash();
+          continue;
+        }
+
+        // Botão OVERDRIVE (Canto Inferior Direito Acima do Dash)
+        const dOd = Math.hypot(tx - touchControls.overdriveBtn.x, ty - touchControls.overdriveBtn.y);
+        if (dOd <= touchControls.overdriveBtn.radius + 18) {
+          touchControls.overdriveBtn.touchId = t.identifier;
+          triggerOverdrive();
+          continue;
+        }
+
+        // Joystick Virtual Analógico Dinâmico (Lado esquerdo ou inferior da tela)
+        if (tx < V_WIDTH * 0.65 && touchControls.joystick.touchId === null) {
+          touchControls.joystick.active = true;
+          touchControls.joystick.touchId = t.identifier;
+          touchControls.joystick.baseX = tx;
+          touchControls.joystick.baseY = ty;
+          touchControls.joystick.currX = tx;
+          touchControls.joystick.currY = ty;
+          touchControls.joystick.dx = 0;
+          touchControls.joystick.dy = 0;
+          touchControls.joystick.strength = 0;
+          continue;
+        }
       }
     }
-  }, { passive: true });
+  }
 
-  window.addEventListener('touchmove', (e) => {
-    if (isPointerDown && e.touches.length > 0) {
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      pointerTarget = {
-        x: (touch.clientX - rect.left) * (canvas.width / rect.width),
-        y: (touch.clientY - rect.top) * (canvas.height / rect.height)
-      };
+  function handleTouchMove(e) {
+    if (e.cancelable) e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === touchControls.joystick.touchId) {
+        const tx = (t.clientX - rect.left) * scaleX;
+        const ty = (t.clientY - rect.top) * scaleY;
+        const jx = tx - touchControls.joystick.baseX;
+        const jy = ty - touchControls.joystick.baseY;
+        const dist = Math.hypot(jx, jy);
+        const maxR = touchControls.joystick.radius;
+
+        if (dist > maxR) {
+          touchControls.joystick.currX = touchControls.joystick.baseX + (jx / dist) * maxR;
+          touchControls.joystick.currY = touchControls.joystick.baseY + (jy / dist) * maxR;
+        } else {
+          touchControls.joystick.currX = tx;
+          touchControls.joystick.currY = ty;
+        }
+
+        if (dist > 8) {
+          touchControls.joystick.dx = jx / dist;
+          touchControls.joystick.dy = jy / dist;
+          touchControls.joystick.strength = Math.min(1.0, dist / maxR);
+        } else {
+          touchControls.joystick.dx = 0;
+          touchControls.joystick.dy = 0;
+          touchControls.joystick.strength = 0;
+        }
+      }
     }
-  }, { passive: true });
+  }
 
-  window.addEventListener('touchend', () => {
-    isPointerDown = false;
-    pointerTarget = null;
-  });
+  function handleTouchEnd(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === touchControls.joystick.touchId) {
+        touchControls.joystick.active = false;
+        touchControls.joystick.touchId = null;
+        touchControls.joystick.dx = 0;
+        touchControls.joystick.dy = 0;
+        touchControls.joystick.strength = 0;
+        touchControls.joystick.baseX = 140;
+        touchControls.joystick.baseY = V_HEIGHT - 140;
+        touchControls.joystick.currX = 140;
+        touchControls.joystick.currY = V_HEIGHT - 140;
+      }
+      if (t.identifier === touchControls.dashBtn.touchId) {
+        touchControls.dashBtn.touchId = null;
+      }
+      if (t.identifier === touchControls.overdriveBtn.touchId) {
+        touchControls.overdriveBtn.touchId = null;
+      }
+    }
+  }
 
+  canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+  window.addEventListener('touchmove', handleTouchMove, { passive: false });
+  window.addEventListener('touchend', handleTouchEnd, { passive: false });
+  window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+  // Mouse Click (Desktop)
   canvas.addEventListener('click', (e) => {
     initAudio();
     const m = getCanvasMousePos(e);
 
     // Botões do HUD (Mute e Pause)
     if (m.y >= 10 && m.y <= 40) {
-      // Mute button
       if (m.x >= V_WIDTH - 95 && m.x <= V_WIDTH - 20) {
         toggleMute();
         return;
       }
-      // Pause button
       if (m.x >= V_WIDTH - 180 && m.x <= V_WIDTH - 105) {
         togglePause();
         return;
@@ -419,7 +574,6 @@
       const cx = V_WIDTH * 0.5;
       const cy = V_HEIGHT * 0.5;
 
-      // Botão Restart
       const btnX = cx - 140;
       const btnY = cy + 90;
       const btnW = 280;
@@ -429,7 +583,6 @@
         return;
       }
 
-      // Botão GitHub
       const ghX = cx - 145;
       const ghY = cy + 145;
       const ghW = 140;
@@ -439,7 +592,6 @@
         return;
       }
 
-      // Botão Portfolio
       const portX = cx + 5;
       const portY = cy + 145;
       const portW = 140;
@@ -641,6 +793,18 @@
 
     currentZoom = 1.0;
     targetZoom = 1.0;
+
+    touchControls.joystick.active = false;
+    touchControls.joystick.touchId = null;
+    touchControls.joystick.dx = 0;
+    touchControls.joystick.dy = 0;
+    touchControls.joystick.strength = 0;
+    touchControls.joystick.baseX = 140;
+    touchControls.joystick.baseY = V_HEIGHT - 140;
+    touchControls.joystick.currX = 140;
+    touchControls.joystick.currY = V_HEIGHT - 140;
+    touchControls.dashBtn.touchId = null;
+    touchControls.overdriveBtn.touchId = null;
 
     lasers.length = 0;
     enemies.length = 0;
