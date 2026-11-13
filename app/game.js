@@ -297,8 +297,13 @@
     }
   });
 
-  // Touch & Mobile Virtual Controls
+  // Touch & Mobile Virtual Controls + Desktop Mouse Aim (Twin-Stick)
   let isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const mouseAim = {
+    x: V_WIDTH * 0.5,
+    y: V_HEIGHT * 0.5 - 120,
+    active: false
+  };
   const touchControls = {
     joystick: {
       active: false,
@@ -313,16 +318,29 @@
       dy: 0,
       strength: 0
     },
+    aimJoystick: {
+      active: false,
+      touchId: null,
+      baseX: V_WIDTH - 140,
+      baseY: V_HEIGHT - 140,
+      currX: V_WIDTH - 140,
+      currY: V_HEIGHT - 140,
+      radius: 65,
+      knobRadius: 28,
+      dx: 0,
+      dy: 0,
+      strength: 0
+    },
     dashBtn: {
-      x: V_WIDTH - 100,
-      y: V_HEIGHT - 100,
-      radius: 42,
+      x: V_WIDTH - 255,
+      y: V_HEIGHT - 85,
+      radius: 38,
       touchId: null
     },
     overdriveBtn: {
-      x: V_WIDTH - 100,
-      y: V_HEIGHT - 205,
-      radius: 35,
+      x: V_WIDTH - 90,
+      y: V_HEIGHT - 255,
+      radius: 34,
       touchId: null
     }
   };
@@ -350,6 +368,7 @@
   function handleTouchStart(e) {
     initAudio();
     isTouchDevice = true;
+    mouseAim.active = false;
     if (e.cancelable) e.preventDefault();
 
     const rect = canvas.getBoundingClientRect();
@@ -452,8 +471,8 @@
           continue;
         }
 
-        // Joystick Virtual Analógico Dinâmico (Lado esquerdo ou inferior da tela)
-        if (tx < V_WIDTH * 0.65 && touchControls.joystick.touchId === null) {
+        // Joystick Virtual Analógico Esquerdo (Movimentação - Metade esquerda da tela)
+        if (tx < V_WIDTH * 0.5 && touchControls.joystick.touchId === null) {
           touchControls.joystick.active = true;
           touchControls.joystick.touchId = t.identifier;
           touchControls.joystick.baseX = tx;
@@ -465,7 +484,46 @@
           touchControls.joystick.strength = 0;
           continue;
         }
+
+        // Joystick Virtual Analógico Direito (Mira Twin-Stick - Metade direita da tela)
+        if (tx >= V_WIDTH * 0.5 && touchControls.aimJoystick.touchId === null) {
+          touchControls.aimJoystick.active = true;
+          touchControls.aimJoystick.touchId = t.identifier;
+          touchControls.aimJoystick.baseX = tx;
+          touchControls.aimJoystick.baseY = ty;
+          touchControls.aimJoystick.currX = tx;
+          touchControls.aimJoystick.currY = ty;
+          touchControls.aimJoystick.dx = 0;
+          touchControls.aimJoystick.dy = 0;
+          touchControls.aimJoystick.strength = 0;
+          continue;
+        }
       }
+    }
+  }
+
+  function updateVirtualStick(stick, tx, ty) {
+    const jx = tx - stick.baseX;
+    const jy = ty - stick.baseY;
+    const dist = Math.hypot(jx, jy);
+    const maxR = stick.radius;
+
+    if (dist > maxR) {
+      stick.currX = stick.baseX + (jx / dist) * maxR;
+      stick.currY = stick.baseY + (jy / dist) * maxR;
+    } else {
+      stick.currX = tx;
+      stick.currY = ty;
+    }
+
+    if (dist > 8) {
+      stick.dx = jx / dist;
+      stick.dy = jy / dist;
+      stick.strength = Math.min(1.0, dist / maxR);
+    } else {
+      stick.dx = 0;
+      stick.dy = 0;
+      stick.strength = 0;
     }
   }
 
@@ -477,31 +535,13 @@
 
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
+      const tx = (t.clientX - rect.left) * scaleX;
+      const ty = (t.clientY - rect.top) * scaleY;
+
       if (t.identifier === touchControls.joystick.touchId) {
-        const tx = (t.clientX - rect.left) * scaleX;
-        const ty = (t.clientY - rect.top) * scaleY;
-        const jx = tx - touchControls.joystick.baseX;
-        const jy = ty - touchControls.joystick.baseY;
-        const dist = Math.hypot(jx, jy);
-        const maxR = touchControls.joystick.radius;
-
-        if (dist > maxR) {
-          touchControls.joystick.currX = touchControls.joystick.baseX + (jx / dist) * maxR;
-          touchControls.joystick.currY = touchControls.joystick.baseY + (jy / dist) * maxR;
-        } else {
-          touchControls.joystick.currX = tx;
-          touchControls.joystick.currY = ty;
-        }
-
-        if (dist > 8) {
-          touchControls.joystick.dx = jx / dist;
-          touchControls.joystick.dy = jy / dist;
-          touchControls.joystick.strength = Math.min(1.0, dist / maxR);
-        } else {
-          touchControls.joystick.dx = 0;
-          touchControls.joystick.dy = 0;
-          touchControls.joystick.strength = 0;
-        }
+        updateVirtualStick(touchControls.joystick, tx, ty);
+      } else if (t.identifier === touchControls.aimJoystick.touchId) {
+        updateVirtualStick(touchControls.aimJoystick, tx, ty);
       }
     }
   }
@@ -520,10 +560,21 @@
         touchControls.joystick.currX = 140;
         touchControls.joystick.currY = V_HEIGHT - 140;
 
-        // Se estava movendo em diagonal no joystick, preserva o ângulo na soltura
-        if (lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
+        // Se estava movendo em diagonal no joystick e sem mira manual ativa, preserva o ângulo na soltura
+        if (!touchControls.aimJoystick.active && lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
           player.angle = lastDiagonalAngle;
         }
+      }
+      if (t.identifier === touchControls.aimJoystick.touchId) {
+        touchControls.aimJoystick.active = false;
+        touchControls.aimJoystick.touchId = null;
+        touchControls.aimJoystick.dx = 0;
+        touchControls.aimJoystick.dy = 0;
+        touchControls.aimJoystick.strength = 0;
+        touchControls.aimJoystick.baseX = V_WIDTH - 140;
+        touchControls.aimJoystick.baseY = V_HEIGHT - 140;
+        touchControls.aimJoystick.currX = V_WIDTH - 140;
+        touchControls.aimJoystick.currY = V_HEIGHT - 140;
       }
       if (t.identifier === touchControls.dashBtn.touchId) {
         touchControls.dashBtn.touchId = null;
@@ -538,6 +589,15 @@
   window.addEventListener('touchmove', handleTouchMove, { passive: false });
   window.addEventListener('touchend', handleTouchEnd, { passive: false });
   window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+  // Mouse Aim (Desktop Twin-Stick)
+  canvas.addEventListener('mousemove', (e) => {
+    const m = getCanvasMousePos(e);
+    mouseAim.x = m.x;
+    mouseAim.y = m.y;
+    mouseAim.active = true;
+    isTouchDevice = false;
+  });
 
   // Mouse Click (Desktop)
   canvas.addEventListener('click', (e) => {
@@ -815,6 +875,15 @@
     touchControls.joystick.baseY = V_HEIGHT - 140;
     touchControls.joystick.currX = 140;
     touchControls.joystick.currY = V_HEIGHT - 140;
+    touchControls.aimJoystick.active = false;
+    touchControls.aimJoystick.touchId = null;
+    touchControls.aimJoystick.dx = 0;
+    touchControls.aimJoystick.dy = 0;
+    touchControls.aimJoystick.strength = 0;
+    touchControls.aimJoystick.baseX = V_WIDTH - 140;
+    touchControls.aimJoystick.baseY = V_HEIGHT - 140;
+    touchControls.aimJoystick.currX = V_WIDTH - 140;
+    touchControls.aimJoystick.currY = V_HEIGHT - 140;
     touchControls.dashBtn.touchId = null;
     touchControls.overdriveBtn.touchId = null;
 
@@ -1085,6 +1154,10 @@
       if (keys['d'] || keys['keyd'] || keys['arrowright']) dx += 1;
     }
 
+    // Mira Twin-Stick independente (Joystick Direito no Mobile ou Mouse no Desktop)
+    const hasManualAimStick = touchControls.aimJoystick.active && touchControls.aimJoystick.strength > 0.1;
+    const hasManualMouseAim = !isTouchDevice && mouseAim.active;
+
     if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy);
       const normDx = dx / len;
@@ -1097,21 +1170,21 @@
       player.vx += (targetVx - player.vx) * accelFactor;
       player.vy += (targetVy - player.vy) * accelFactor;
 
-      // Detecção precisa de movimento diagonal (ambos eixos com magnitude relevante)
-      const isDiagonalInput = (Math.abs(normDx) > 0.35 && Math.abs(normDy) > 0.35);
+      if (!hasManualAimStick && !hasManualMouseAim) {
+        // Fallback: sem mira manual ativa, nave aponta na direção do movimento (com grace diagonal)
+        const isDiagonalInput = (Math.abs(normDx) > 0.35 && Math.abs(normDy) > 0.35);
 
-      if (isDiagonalInput) {
-        lastDiagonalAngle = Math.atan2(normDy, normDx);
-        diagonalGraceTimer = DIAGONAL_GRACE_DURATION;
-        player.angle = lastDiagonalAngle;
-      } else {
-        // Se uma das teclas acabou de ser solta durante desaceleração de diagonal,
-        // preserva o ângulo diagonal dentro da janela de tolerância para permitir parar na diagonal
-        if (diagonalGraceTimer > 0 && lastDiagonalAngle !== null) {
+        if (isDiagonalInput) {
+          lastDiagonalAngle = Math.atan2(normDy, normDx);
+          diagonalGraceTimer = DIAGONAL_GRACE_DURATION;
           player.angle = lastDiagonalAngle;
         } else {
-          player.angle = Math.atan2(normDy, normDx);
-          lastDiagonalAngle = null;
+          if (diagonalGraceTimer > 0 && lastDiagonalAngle !== null) {
+            player.angle = lastDiagonalAngle;
+          } else {
+            player.angle = Math.atan2(normDy, normDx);
+            lastDiagonalAngle = null;
+          }
         }
       }
 
@@ -1138,9 +1211,21 @@
       if (Math.abs(player.vx) < 5) player.vx = 0;
       if (Math.abs(player.vy) < 5) player.vy = 0;
 
-      // Ao soltar todas as teclas/analógico, garante que o ângulo final de repouso seja a diagonal!
-      if (lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
+      // Ao soltar todas as teclas/analógico sem mira manual, preserva o ângulo diagonal de repouso
+      if (!hasManualAimStick && !hasManualMouseAim && lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
         player.angle = lastDiagonalAngle;
+      }
+    }
+
+    // Aplica mira Twin-Stick quando ativa
+    if (hasManualAimStick) {
+      player.angle = Math.atan2(touchControls.aimJoystick.dy, touchControls.aimJoystick.dx);
+    } else if (hasManualMouseAim) {
+      const worldMouse = screenToWorld(mouseAim.x, mouseAim.y);
+      const mdx = worldMouse.x - player.x;
+      const mdy = worldMouse.y - player.y;
+      if (Math.hypot(mdx, mdy) > 4) {
+        player.angle = Math.atan2(mdy, mdx);
       }
     }
 
@@ -2920,45 +3005,35 @@
     ctx.restore();
   }
 
-  function drawTouchControls() {
-    if (state !== GameState.PLAYING) return;
-
-    ctx.save();
-
-    // 1. Virtual Joystick Analógico Dinâmico
-    const joy = touchControls.joystick;
-    if (joy.active) {
-      // Base externa do joystick sob o polegar
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
+  function drawVirtualStickVisual(stick, accentColor, shadowColor, idleX, idleY, idleLabel) {
+    if (stick.active) {
+      ctx.strokeStyle = accentColor;
       ctx.lineWidth = 2;
       ctx.fillStyle = 'rgba(9, 9, 11, 0.50)';
       ctx.beginPath();
-      ctx.arc(joy.baseX, joy.baseY, joy.radius, 0, Math.PI * 2);
+      ctx.arc(stick.baseX, stick.baseY, stick.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Cruz tática na base
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(joy.baseX - joy.radius * 0.7, joy.baseY); ctx.lineTo(joy.baseX + joy.radius * 0.7, joy.baseY);
-      ctx.moveTo(joy.baseX, joy.baseY - joy.radius * 0.7); ctx.lineTo(joy.baseX, joy.baseY + joy.radius * 0.7);
+      ctx.moveTo(stick.baseX - stick.radius * 0.7, stick.baseY); ctx.lineTo(stick.baseX + stick.radius * 0.7, stick.baseY);
+      ctx.moveTo(stick.baseX, stick.baseY - stick.radius * 0.7); ctx.lineTo(stick.baseX, stick.baseY + stick.radius * 0.7);
       ctx.stroke();
 
-      // Haste conectora
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.strokeStyle = accentColor;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(joy.baseX, joy.baseY);
-      ctx.lineTo(joy.currX, joy.currY);
+      ctx.moveTo(stick.baseX, stick.baseY);
+      ctx.lineTo(stick.currX, stick.currY);
       ctx.stroke();
 
-      // Knob interno
-      ctx.shadowColor = '#00f0ff';
+      ctx.shadowColor = shadowColor;
       ctx.shadowBlur = 12;
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.75)';
+      ctx.fillStyle = accentColor;
       ctx.beginPath();
-      ctx.arc(joy.currX, joy.currY, joy.knobRadius, 0, Math.PI * 2);
+      ctx.arc(stick.currX, stick.currY, stick.knobRadius, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
@@ -2966,23 +3041,49 @@
 
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(joy.currX, joy.currY, 4, 0, Math.PI * 2);
+      ctx.arc(stick.currX, stick.currY, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     } else {
-      // Indicador de repouso no canto inferior esquerdo para guiar o toque
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
-      ctx.arc(140, V_HEIGHT - 140, 52, 0, Math.PI * 2);
+      ctx.arc(idleX, idleY, 52, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
       ctx.font = '700 10px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('NAV // STICK', 140, V_HEIGHT - 136);
+      ctx.fillText(idleLabel, idleX, idleY + 4);
+    }
+  }
+
+  function drawTouchControls() {
+    if (state !== GameState.PLAYING) return;
+
+    ctx.save();
+
+    // 1. Joysticks Virtuais Twin-Stick (Esquerdo = Navegação, Direito = Mira)
+    drawVirtualStickVisual(touchControls.joystick, 'rgba(0, 240, 255, 0.65)', '#00f0ff', 140, V_HEIGHT - 140, 'NAV // STICK');
+    drawVirtualStickVisual(touchControls.aimJoystick, 'rgba(255, 42, 133, 0.70)', '#ff2a85', V_WIDTH - 140, V_HEIGHT - 140, 'AIM // STICK');
+
+    // Retícula tática do Mouse no Desktop
+    if (!isTouchDevice && mouseAim.active) {
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(mouseAim.x, mouseAim.y, 10, 0, Math.PI * 2);
+      ctx.moveTo(mouseAim.x - 16, mouseAim.y); ctx.lineTo(mouseAim.x - 6, mouseAim.y);
+      ctx.moveTo(mouseAim.x + 6, mouseAim.y); ctx.lineTo(mouseAim.x + 16, mouseAim.y);
+      ctx.moveTo(mouseAim.x, mouseAim.y - 16); ctx.lineTo(mouseAim.x, mouseAim.y - 6);
+      ctx.moveTo(mouseAim.x, mouseAim.y + 6); ctx.lineTo(mouseAim.x, mouseAim.y + 16);
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(mouseAim.x, mouseAim.y, 2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     // 2. Botão de DASH (Canto Inferior Direito)
