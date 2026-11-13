@@ -2304,6 +2304,10 @@
   function render() {
     ctx.save();
 
+    // Limpa 100% da tela antes de qualquer transform de zoom/shake (evita rastros nas bordas)
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+
     // Screen Shake
     if (screenShake > 0) {
       const ox = (Math.random() - 0.5) * screenShake * 2;
@@ -2317,9 +2321,7 @@
     ctx.scale(currentZoom, currentZoom);
     ctx.translate(-V_WIDTH * 0.5, -V_HEIGHT * 0.5);
 
-    // 1. OLED Pure Black Background & Extended Technical Grid
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(-600, -600, V_WIDTH + 1200, V_HEIGHT + 1200);
+    // 1. Technical Grid
     drawCyberGrid();
 
     // Demarcação técnica do perímetro da arena jogável
@@ -3092,26 +3094,30 @@
 
     ctx.save();
 
-    // 1. Joysticks Virtuais Twin-Stick (Esquerdo = Navegação, Direito = Mira)
+    // Retícula tática do Mouse no Desktop (sem poluir com botões touch)
+    if (!isTouchDevice) {
+      if (mouseAim.active) {
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(mouseAim.x, mouseAim.y, 10, 0, Math.PI * 2);
+        ctx.moveTo(mouseAim.x - 16, mouseAim.y); ctx.lineTo(mouseAim.x - 6, mouseAim.y);
+        ctx.moveTo(mouseAim.x + 6, mouseAim.y); ctx.lineTo(mouseAim.x + 16, mouseAim.y);
+        ctx.moveTo(mouseAim.x, mouseAim.y - 16); ctx.lineTo(mouseAim.x, mouseAim.y - 6);
+        ctx.moveTo(mouseAim.x, mouseAim.y + 6); ctx.lineTo(mouseAim.x, mouseAim.y + 16);
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(mouseAim.x, mouseAim.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
+
+    // 1. Joysticks Virtuais Twin-Stick (Somente em dispositivos Touch/Mobile)
     drawVirtualStickVisual(touchControls.joystick, 'rgba(0, 240, 255, 0.65)', '#00f0ff', 140, V_HEIGHT - 140, 'NAV // STICK');
     drawVirtualStickVisual(touchControls.aimJoystick, 'rgba(255, 42, 133, 0.70)', '#ff2a85', V_WIDTH - 140, V_HEIGHT - 140, 'AIM // STICK');
-
-    // Retícula tática do Mouse no Desktop
-    if (!isTouchDevice && mouseAim.active) {
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(mouseAim.x, mouseAim.y, 10, 0, Math.PI * 2);
-      ctx.moveTo(mouseAim.x - 16, mouseAim.y); ctx.lineTo(mouseAim.x - 6, mouseAim.y);
-      ctx.moveTo(mouseAim.x + 6, mouseAim.y); ctx.lineTo(mouseAim.x + 16, mouseAim.y);
-      ctx.moveTo(mouseAim.x, mouseAim.y - 16); ctx.lineTo(mouseAim.x, mouseAim.y - 6);
-      ctx.moveTo(mouseAim.x, mouseAim.y + 6); ctx.lineTo(mouseAim.x, mouseAim.y + 16);
-      ctx.stroke();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(mouseAim.x, mouseAim.y, 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
 
     // 2. Botão de DASH (Canto Inferior Direito)
     const dash = touchControls.dashBtn;
