@@ -59,7 +59,13 @@
 
   // Audio System (Procedural Web Audio Synthesizer)
   let audioCtx = null;
-  let isMuted = localStorage.getItem('an_survivor_muted') === 'true';
+  const urlParams = new URLSearchParams(window.location.search);
+  const isDemoMode = urlParams.get('autoplay') === '1' || urlParams.get('demo') === '1';
+  let isMuted = isDemoMode || localStorage.getItem('an_survivor_muted') === 'true';
+  let autoPlayEnabled = isDemoMode;
+  let autoPlayUpgradeTimer = 0;
+  let autoPlaySelectedCard = -1;
+  let autoPlayRestartTimer = 0;
 
   function initAudio() {
     if (!audioCtx) {
@@ -253,6 +259,12 @@
       return;
     }
 
+    // Piloto Automático (Autoplay AI) na tecla B
+    if (keyLower === 'b' || codeLower === 'keyb') {
+      toggleAutoPlay();
+      return;
+    }
+
     // Dash / Esquiva no Espaço
     if (e.code === 'Space' || keyLower === ' ') {
       if (state === GameState.PLAYING) {
@@ -380,7 +392,7 @@
       const tx = (t.clientX - rect.left) * scaleX;
       const ty = (t.clientY - rect.top) * scaleY;
 
-      // 1. Botões do HUD (Mute e Pause)
+      // 1. Botões do HUD (Mute, Pause e Auto)
       if (ty >= 10 && ty <= 45) {
         if (tx >= V_WIDTH - 95 && tx <= V_WIDTH - 20) {
           toggleMute();
@@ -388,6 +400,10 @@
         }
         if (tx >= V_WIDTH - 180 && tx <= V_WIDTH - 105) {
           togglePause();
+          continue;
+        }
+        if (tx >= V_WIDTH - 265 && tx <= V_WIDTH - 190) {
+          toggleAutoPlay();
           continue;
         }
       }
@@ -604,7 +620,7 @@
     initAudio();
     const m = getCanvasMousePos(e);
 
-    // Botões do HUD (Mute e Pause)
+    // Botões do HUD (Mute, Pause e Auto)
     if (m.y >= 10 && m.y <= 40) {
       if (m.x >= V_WIDTH - 95 && m.x <= V_WIDTH - 20) {
         toggleMute();
@@ -612,6 +628,10 @@
       }
       if (m.x >= V_WIDTH - 180 && m.x <= V_WIDTH - 105) {
         togglePause();
+        return;
+      }
+      if (m.x >= V_WIDTH - 265 && m.x <= V_WIDTH - 190) {
+        toggleAutoPlay();
         return;
       }
     }
@@ -821,6 +841,209 @@
     }
   }
 
+  function toggleAutoPlay() {
+    autoPlayEnabled = !autoPlayEnabled;
+    autoPlayUpgradeTimer = 0;
+    autoPlaySelectedCard = -1;
+    autoPlayRestartTimer = 0;
+    if (state === GameState.PLAYING) {
+      addFloatingText(
+        player.x,
+        player.y - 40,
+        autoPlayEnabled ? 'AI PILOT // ONLINE' : 'AI PILOT // OFFLINE',
+        autoPlayEnabled ? '#00f0ff' : '#a1a1aa'
+      );
+    }
+  }
+
+  function chooseBestUpgradeIndex() {
+    if (!upgradeOptions || upgradeOptions.length === 0) return 0;
+    const hpRatio = player.health / Math.max(1, player.maxHealth);
+    const weights = {
+      mega_overcharge: 100,
+      mega_orbital_bastion: 95,
+      mega_aim_turbo: 90,
+      mega_aim_assist: 80,
+      multishot: 95,
+      fire_rate: 90,
+      orbital_shield: 85,
+      bit_drone: 82,
+      crit_overclock: 76,
+      laser_pierce: 72,
+      emp_nova: 66,
+      magnet: 45,
+      health: hpRatio < 0.55 ? 110 : 35
+    };
+
+    let bestIdx = 0;
+    let bestScore = -1;
+    for (let i = 0; i < upgradeOptions.length; i++) {
+      const w = weights[upgradeOptions[i].id] || 50;
+      if (w > bestScore) {
+        bestScore = w;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  function computeAutoPlayInput(dt) {
+    const bounds = getArenaBounds();
+    let steerX = 0;
+    let steerY = 0;
+    let emergencyDanger = false;
+
+    // 1. Esquiva inteligente de projéteis inimigos (força perpendicular + repulsão)
+    for (let i = 0; i < enemyBullets.length; i++) {
+      const b = enemyBullets[i];
+      const dx = player.x - b.x;
+      const dy = player.y - b.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (b.explodeAfter > 0 && dist < 185 && dist > 1) {
+        const w = ((185 - dist) / 185) * 3.2;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < 75) emergencyDanger = true;
+        continue;
+      }
+
+      if (dist < 220 && dist > 1) {
+        const bSpd = Math.hypot(b.vx, b.vy);
+        if (bSpd > 1) {
+          const dot = (dx * b.vx + dy * b.vy) / (dist * bSpd);
+          if (dot > 0.25) {
+            // Vetor perpendicular para desviar da linha de tiro
+            const cross = b.vx * dy - b.vy * dx;
+            const sign = cross >= 0 ? 1 : -1;
+            const perpX = (-b.vy / bSpd) * sign;
+            const perpY = (b.vx / bSpd) * sign;
+            const urgency = ((220 - dist) / 220) * 3.4;
+            steerX += perpX * urgency + (dx / dist) * (urgency * 0.45);
+            steerY += perpY * urgency + (dy / dist) * (urgency * 0.45);
+            if (dist < 75 && dot > 0.7) emergencyDanger = true;
+          }
+        }
+      }
+    }
+
+    // 2. Kiting / Repulsão de inimigos próximos
+    let nearestEnemy = null;
+    let nearestEnemyDist = Infinity;
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      const dx = player.x - e.x;
+      const dy = player.y - e.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < nearestEnemyDist) {
+        nearestEnemyDist = dist;
+        nearestEnemy = e;
+      }
+      const safeDist = 230 + e.radius;
+      if (dist < safeDist && dist > 1) {
+        const w = ((safeDist - dist) / safeDist) * 2.6;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < e.radius + 46) emergencyDanger = true;
+      }
+    }
+
+    // 3. Posicionamento contra Boss / Mini-Boss (inclusive desvio de telégrafos!)
+    if (currentBoss && currentBoss.hp > 0) {
+      const dx = player.x - currentBoss.x;
+      const dy = player.y - currentBoss.y;
+      const dist = Math.hypot(dx, dy);
+      const bossSafe = 320 + currentBoss.radius;
+
+      if (currentBoss.telegraphTimer > 0 && dist > 1) {
+        // Desvio lateral imediato da linha de Dash/Railgun do Boss
+        const perpX = -dy / dist;
+        const perpY = dx / dist;
+        steerX += perpX * 3.8;
+        steerY += perpY * 3.8;
+        if (dist < 260) emergencyDanger = true;
+      } else if (dist < bossSafe && dist > 1) {
+        const w = ((bossSafe - dist) / bossSafe) * 2.8;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < currentBoss.radius + 55) emergencyDanger = true;
+      }
+    }
+
+    // 4. Manter dentro das bordas da arena (evitar cantos)
+    const wallMargin = 120;
+    if (player.x < bounds.minX + wallMargin) steerX += ((bounds.minX + wallMargin - player.x) / wallMargin) * 2.4;
+    if (player.x > bounds.maxX - wallMargin) steerX -= ((player.x - (bounds.maxX - wallMargin)) / wallMargin) * 2.4;
+    if (player.y < bounds.minY + wallMargin) steerY += ((bounds.minY + wallMargin - player.y) / wallMargin) * 2.4;
+    if (player.y > bounds.maxY - wallMargin) steerY -= ((player.y - (bounds.maxY - wallMargin)) / wallMargin) * 2.4;
+
+    // 5. Coleta oportunista de Gemas de XP quando não há perigo imediato
+    if (!emergencyDanger && xpGems.length > 0 && Math.hypot(steerX, steerY) < 1.6) {
+      let bestGem = null;
+      let bestGemDist = Infinity;
+      for (let i = 0; i < xpGems.length; i++) {
+        const g = xpGems[i];
+        const gd = Math.hypot(g.x - player.x, g.y - player.y);
+        if (gd < bestGemDist) {
+          bestGemDist = gd;
+          bestGem = g;
+        }
+      }
+      if (bestGem && bestGemDist > 8) {
+        steerX += ((bestGem.x - player.x) / bestGemDist) * 1.1;
+        steerY += ((bestGem.y - player.y) / bestGemDist) * 1.1;
+      }
+    }
+
+    // 6. Órbita suave quando a arena estiver calma
+    if (Math.hypot(steerX, steerY) < 0.25) {
+      const cx = V_WIDTH * 0.5 + Math.cos(survivalTimer * 0.7) * 160;
+      const cy = V_HEIGHT * 0.5 + Math.sin(survivalTimer * 0.7) * 110;
+      const dx = cx - player.x;
+      const dy = cy - player.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 20) {
+        steerX += (dx / d) * 0.8;
+        steerY += (dy / d) * 0.8;
+      }
+    }
+
+    // Dash tático de emergência
+    if (emergencyDanger && dashCooldownTimer <= 0) {
+      if (Math.hypot(steerX, steerY) > 0.05) {
+        const sLen = Math.hypot(steerX, steerY);
+        player.vx = (steerX / sLen) * player.speed;
+        player.vy = (steerY / sLen) * player.speed;
+      }
+      triggerDash();
+    }
+
+    // Overdrive tático
+    if (overdriveCharge >= 100 && !isOverdriveActive && (currentBoss || enemies.length >= 4)) {
+      triggerOverdrive();
+    }
+
+    // Mira Twin-Stick inteligente (prioriza inimigo mais próximo ou Boss)
+    let aimTarget = null;
+    if (currentBoss && currentBoss.hp > 0 && (!nearestEnemy || Math.hypot(currentBoss.x - player.x, currentBoss.y - player.y) < 420)) {
+      aimTarget = currentBoss;
+    } else {
+      aimTarget = nearestEnemy || currentBoss;
+    }
+
+    let aimAngle = null;
+    if (aimTarget) {
+      aimAngle = Math.atan2(aimTarget.y - player.y, aimTarget.x - player.x);
+    }
+
+    const len = Math.hypot(steerX, steerY);
+    return {
+      dx: len > 0.08 ? steerX / len : 0,
+      dy: len > 0.08 ? steerY / len : 0,
+      aimAngle: aimAngle
+    };
+  }
+
   // Dynamic Camera Zoom
   let currentZoom = 1.0;
   let targetZoom = 1.0;
@@ -974,6 +1197,9 @@
     spawnTimer = 0.0;
     currentSpawnInterval = BASE_SPAWN_INTERVAL;
     startHordeForLevel(1);
+    autoPlayUpgradeTimer = 0;
+    autoPlaySelectedCard = -1;
+    autoPlayRestartTimer = 0;
     screenShake = 0.0;
     state = GameState.PLAYING;
   }
@@ -1093,7 +1319,210 @@
     if (state === GameState.PLAYING) {
       survivalTimer += dt;
 
-      // Dynamic Camera Zoom Calculation based on Level and Mobility
+      function toggleAutoPlay() {
+    autoPlayEnabled = !autoPlayEnabled;
+    autoPlayUpgradeTimer = 0;
+    autoPlaySelectedCard = -1;
+    autoPlayRestartTimer = 0;
+    if (state === GameState.PLAYING) {
+      addFloatingText(
+        player.x,
+        player.y - 40,
+        autoPlayEnabled ? 'AI PILOT // ONLINE' : 'AI PILOT // OFFLINE',
+        autoPlayEnabled ? '#00f0ff' : '#a1a1aa'
+      );
+    }
+  }
+
+  function chooseBestUpgradeIndex() {
+    if (!upgradeOptions || upgradeOptions.length === 0) return 0;
+    const hpRatio = player.health / Math.max(1, player.maxHealth);
+    const weights = {
+      mega_overcharge: 100,
+      mega_orbital_bastion: 95,
+      mega_aim_turbo: 90,
+      mega_aim_assist: 80,
+      multishot: 95,
+      fire_rate: 90,
+      orbital_shield: 85,
+      bit_drone: 82,
+      crit_overclock: 76,
+      laser_pierce: 72,
+      emp_nova: 66,
+      magnet: 45,
+      health: hpRatio < 0.55 ? 110 : 35
+    };
+
+    let bestIdx = 0;
+    let bestScore = -1;
+    for (let i = 0; i < upgradeOptions.length; i++) {
+      const w = weights[upgradeOptions[i].id] || 50;
+      if (w > bestScore) {
+        bestScore = w;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  function computeAutoPlayInput(dt) {
+    const bounds = getArenaBounds();
+    let steerX = 0;
+    let steerY = 0;
+    let emergencyDanger = false;
+
+    // 1. Esquiva inteligente de projéteis inimigos (força perpendicular + repulsão)
+    for (let i = 0; i < enemyBullets.length; i++) {
+      const b = enemyBullets[i];
+      const dx = player.x - b.x;
+      const dy = player.y - b.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (b.explodeAfter > 0 && dist < 185 && dist > 1) {
+        const w = ((185 - dist) / 185) * 3.2;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < 75) emergencyDanger = true;
+        continue;
+      }
+
+      if (dist < 220 && dist > 1) {
+        const bSpd = Math.hypot(b.vx, b.vy);
+        if (bSpd > 1) {
+          const dot = (dx * b.vx + dy * b.vy) / (dist * bSpd);
+          if (dot > 0.25) {
+            // Vetor perpendicular para desviar da linha de tiro
+            const cross = b.vx * dy - b.vy * dx;
+            const sign = cross >= 0 ? 1 : -1;
+            const perpX = (-b.vy / bSpd) * sign;
+            const perpY = (b.vx / bSpd) * sign;
+            const urgency = ((220 - dist) / 220) * 3.4;
+            steerX += perpX * urgency + (dx / dist) * (urgency * 0.45);
+            steerY += perpY * urgency + (dy / dist) * (urgency * 0.45);
+            if (dist < 75 && dot > 0.7) emergencyDanger = true;
+          }
+        }
+      }
+    }
+
+    // 2. Kiting / Repulsão de inimigos próximos
+    let nearestEnemy = null;
+    let nearestEnemyDist = Infinity;
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      const dx = player.x - e.x;
+      const dy = player.y - e.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < nearestEnemyDist) {
+        nearestEnemyDist = dist;
+        nearestEnemy = e;
+      }
+      const safeDist = 230 + e.radius;
+      if (dist < safeDist && dist > 1) {
+        const w = ((safeDist - dist) / safeDist) * 2.6;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < e.radius + 46) emergencyDanger = true;
+      }
+    }
+
+    // 3. Posicionamento contra Boss / Mini-Boss (inclusive desvio de telégrafos!)
+    if (currentBoss && currentBoss.hp > 0) {
+      const dx = player.x - currentBoss.x;
+      const dy = player.y - currentBoss.y;
+      const dist = Math.hypot(dx, dy);
+      const bossSafe = 320 + currentBoss.radius;
+
+      if (currentBoss.telegraphTimer > 0 && dist > 1) {
+        // Desvio lateral imediato da linha de Dash/Railgun do Boss
+        const perpX = -dy / dist;
+        const perpY = dx / dist;
+        steerX += perpX * 3.8;
+        steerY += perpY * 3.8;
+        if (dist < 260) emergencyDanger = true;
+      } else if (dist < bossSafe && dist > 1) {
+        const w = ((bossSafe - dist) / bossSafe) * 2.8;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < currentBoss.radius + 55) emergencyDanger = true;
+      }
+    }
+
+    // 4. Manter dentro das bordas da arena (evitar cantos)
+    const wallMargin = 120;
+    if (player.x < bounds.minX + wallMargin) steerX += ((bounds.minX + wallMargin - player.x) / wallMargin) * 2.4;
+    if (player.x > bounds.maxX - wallMargin) steerX -= ((player.x - (bounds.maxX - wallMargin)) / wallMargin) * 2.4;
+    if (player.y < bounds.minY + wallMargin) steerY += ((bounds.minY + wallMargin - player.y) / wallMargin) * 2.4;
+    if (player.y > bounds.maxY - wallMargin) steerY -= ((player.y - (bounds.maxY - wallMargin)) / wallMargin) * 2.4;
+
+    // 5. Coleta oportunista de Gemas de XP quando não há perigo imediato
+    if (!emergencyDanger && xpGems.length > 0 && Math.hypot(steerX, steerY) < 1.6) {
+      let bestGem = null;
+      let bestGemDist = Infinity;
+      for (let i = 0; i < xpGems.length; i++) {
+        const g = xpGems[i];
+        const gd = Math.hypot(g.x - player.x, g.y - player.y);
+        if (gd < bestGemDist) {
+          bestGemDist = gd;
+          bestGem = g;
+        }
+      }
+      if (bestGem && bestGemDist > 8) {
+        steerX += ((bestGem.x - player.x) / bestGemDist) * 1.1;
+        steerY += ((bestGem.y - player.y) / bestGemDist) * 1.1;
+      }
+    }
+
+    // 6. Órbita suave quando a arena estiver calma
+    if (Math.hypot(steerX, steerY) < 0.25) {
+      const cx = V_WIDTH * 0.5 + Math.cos(survivalTimer * 0.7) * 160;
+      const cy = V_HEIGHT * 0.5 + Math.sin(survivalTimer * 0.7) * 110;
+      const dx = cx - player.x;
+      const dy = cy - player.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 20) {
+        steerX += (dx / d) * 0.8;
+        steerY += (dy / d) * 0.8;
+      }
+    }
+
+    // Dash tático de emergência
+    if (emergencyDanger && dashCooldownTimer <= 0) {
+      if (Math.hypot(steerX, steerY) > 0.05) {
+        const sLen = Math.hypot(steerX, steerY);
+        player.vx = (steerX / sLen) * player.speed;
+        player.vy = (steerY / sLen) * player.speed;
+      }
+      triggerDash();
+    }
+
+    // Overdrive tático
+    if (overdriveCharge >= 100 && !isOverdriveActive && (currentBoss || enemies.length >= 4)) {
+      triggerOverdrive();
+    }
+
+    // Mira Twin-Stick inteligente (prioriza inimigo mais próximo ou Boss)
+    let aimTarget = null;
+    if (currentBoss && currentBoss.hp > 0 && (!nearestEnemy || Math.hypot(currentBoss.x - player.x, currentBoss.y - player.y) < 420)) {
+      aimTarget = currentBoss;
+    } else {
+      aimTarget = nearestEnemy || currentBoss;
+    }
+
+    let aimAngle = null;
+    if (aimTarget) {
+      aimAngle = Math.atan2(aimTarget.y - player.y, aimTarget.x - player.x);
+    }
+
+    const len = Math.hypot(steerX, steerY);
+    return {
+      dx: len > 0.08 ? steerX / len : 0,
+      dy: len > 0.08 ? steerY / len : 0,
+      aimAngle: aimAngle
+    };
+  }
+
+  // Dynamic Camera Zoom Calculation based on Level and Mobility
       // Zoom mais afastado conforme o nível sobe para dar mais visão de arena e respiro contra hordas/bosses
       const levelZoom = Math.max(0.35, 1.0 - (level - 1) * 0.032);
       const dashBonus = dashActiveTimer > 0 ? 0.04 : 0.0;
@@ -1182,6 +1611,22 @@
       updateEnemies(dt);
       updateXpGems(dt);
       updateGhostTrails(dt);
+    } else if (autoPlayEnabled && state === GameState.LEVEL_UP) {
+      if (autoPlaySelectedCard < 0) {
+        autoPlaySelectedCard = chooseBestUpgradeIndex();
+      }
+      autoPlayUpgradeTimer += dt;
+      if (autoPlayUpgradeTimer >= 1.2) {
+        const picked = autoPlaySelectedCard;
+        autoPlayUpgradeTimer = 0;
+        autoPlaySelectedCard = -1;
+        selectUpgrade(picked);
+      }
+    } else if (autoPlayEnabled && state === GameState.GAME_OVER) {
+      autoPlayRestartTimer += dt;
+      if (autoPlayRestartTimer >= 3.0) {
+        resetGame();
+      }
     }
 
     updateParticles(dt);
@@ -1220,9 +1665,15 @@
 
     let dx = 0;
     let dy = 0;
+    let aiAimAngle = null;
 
-    // 1. Suporte a Joystick Virtual Touch (Celular / Tablet)
-    if (touchControls.joystick.active && touchControls.joystick.strength > 0.05) {
+    if (autoPlayEnabled) {
+      const ai = computeAutoPlayInput(dt);
+      dx = ai.dx;
+      dy = ai.dy;
+      aiAimAngle = ai.aimAngle;
+    } else if (touchControls.joystick.active && touchControls.joystick.strength > 0.05) {
+      // 1. Suporte a Joystick Virtual Touch (Celular / Tablet)
       dx = touchControls.joystick.dx * touchControls.joystick.strength;
       dy = touchControls.joystick.dy * touchControls.joystick.strength;
     } else {
@@ -1233,9 +1684,10 @@
       if (keys['d'] || keys['keyd'] || keys['arrowright']) dx += 1;
     }
 
-    // Mira Twin-Stick independente (Joystick Direito no Mobile ou Mouse no Desktop)
-    const hasManualAimStick = touchControls.aimJoystick.active && touchControls.aimJoystick.strength > 0.1;
-    const hasManualMouseAim = !isTouchDevice && mouseAim.active;
+    // Mira Twin-Stick independente (Joystick Direito no Mobile, Mouse no Desktop ou IA no Autoplay)
+    const hasManualAimStick = !autoPlayEnabled && touchControls.aimJoystick.active && touchControls.aimJoystick.strength > 0.1;
+    const hasManualMouseAim = !autoPlayEnabled && !isTouchDevice && mouseAim.active;
+    const hasAiAim = autoPlayEnabled && aiAimAngle !== null;
 
     if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy);
@@ -1249,7 +1701,7 @@
       player.vx += (targetVx - player.vx) * accelFactor;
       player.vy += (targetVy - player.vy) * accelFactor;
 
-      if (!hasManualAimStick && !hasManualMouseAim) {
+      if (!hasManualAimStick && !hasManualMouseAim && !hasAiAim) {
         // Fallback: sem mira manual ativa, nave aponta na direção do movimento (com grace diagonal)
         const isDiagonalInput = (Math.abs(normDx) > 0.35 && Math.abs(normDy) > 0.35);
 
@@ -1291,13 +1743,15 @@
       if (Math.abs(player.vy) < 5) player.vy = 0;
 
       // Ao soltar todas as teclas/analógico sem mira manual, preserva o ângulo diagonal de repouso
-      if (!hasManualAimStick && !hasManualMouseAim && lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
+      if (!hasManualAimStick && !hasManualMouseAim && !hasAiAim && lastDiagonalAngle !== null && diagonalGraceTimer > 0) {
         player.angle = lastDiagonalAngle;
       }
     }
 
     // Aplica mira Twin-Stick quando ativa
-    if (hasManualAimStick) {
+    if (hasAiAim) {
+      player.angle = aiAimAngle;
+    } else if (hasManualAimStick) {
       player.angle = Math.atan2(touchControls.aimJoystick.dy, touchControls.aimJoystick.dx);
     } else if (hasManualMouseAim) {
       const worldMouse = screenToWorld(mouseAim.x, mouseAim.y);
@@ -2729,7 +3183,210 @@
       ctx.translate(ox, oy);
     }
 
-    // Dynamic Camera Zoom-Out (Escala o mundo conforme a velocidade do jogador)
+    function toggleAutoPlay() {
+    autoPlayEnabled = !autoPlayEnabled;
+    autoPlayUpgradeTimer = 0;
+    autoPlaySelectedCard = -1;
+    autoPlayRestartTimer = 0;
+    if (state === GameState.PLAYING) {
+      addFloatingText(
+        player.x,
+        player.y - 40,
+        autoPlayEnabled ? 'AI PILOT // ONLINE' : 'AI PILOT // OFFLINE',
+        autoPlayEnabled ? '#00f0ff' : '#a1a1aa'
+      );
+    }
+  }
+
+  function chooseBestUpgradeIndex() {
+    if (!upgradeOptions || upgradeOptions.length === 0) return 0;
+    const hpRatio = player.health / Math.max(1, player.maxHealth);
+    const weights = {
+      mega_overcharge: 100,
+      mega_orbital_bastion: 95,
+      mega_aim_turbo: 90,
+      mega_aim_assist: 80,
+      multishot: 95,
+      fire_rate: 90,
+      orbital_shield: 85,
+      bit_drone: 82,
+      crit_overclock: 76,
+      laser_pierce: 72,
+      emp_nova: 66,
+      magnet: 45,
+      health: hpRatio < 0.55 ? 110 : 35
+    };
+
+    let bestIdx = 0;
+    let bestScore = -1;
+    for (let i = 0; i < upgradeOptions.length; i++) {
+      const w = weights[upgradeOptions[i].id] || 50;
+      if (w > bestScore) {
+        bestScore = w;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  function computeAutoPlayInput(dt) {
+    const bounds = getArenaBounds();
+    let steerX = 0;
+    let steerY = 0;
+    let emergencyDanger = false;
+
+    // 1. Esquiva inteligente de projéteis inimigos (força perpendicular + repulsão)
+    for (let i = 0; i < enemyBullets.length; i++) {
+      const b = enemyBullets[i];
+      const dx = player.x - b.x;
+      const dy = player.y - b.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (b.explodeAfter > 0 && dist < 185 && dist > 1) {
+        const w = ((185 - dist) / 185) * 3.2;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < 75) emergencyDanger = true;
+        continue;
+      }
+
+      if (dist < 220 && dist > 1) {
+        const bSpd = Math.hypot(b.vx, b.vy);
+        if (bSpd > 1) {
+          const dot = (dx * b.vx + dy * b.vy) / (dist * bSpd);
+          if (dot > 0.25) {
+            // Vetor perpendicular para desviar da linha de tiro
+            const cross = b.vx * dy - b.vy * dx;
+            const sign = cross >= 0 ? 1 : -1;
+            const perpX = (-b.vy / bSpd) * sign;
+            const perpY = (b.vx / bSpd) * sign;
+            const urgency = ((220 - dist) / 220) * 3.4;
+            steerX += perpX * urgency + (dx / dist) * (urgency * 0.45);
+            steerY += perpY * urgency + (dy / dist) * (urgency * 0.45);
+            if (dist < 75 && dot > 0.7) emergencyDanger = true;
+          }
+        }
+      }
+    }
+
+    // 2. Kiting / Repulsão de inimigos próximos
+    let nearestEnemy = null;
+    let nearestEnemyDist = Infinity;
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      const dx = player.x - e.x;
+      const dy = player.y - e.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < nearestEnemyDist) {
+        nearestEnemyDist = dist;
+        nearestEnemy = e;
+      }
+      const safeDist = 230 + e.radius;
+      if (dist < safeDist && dist > 1) {
+        const w = ((safeDist - dist) / safeDist) * 2.6;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < e.radius + 46) emergencyDanger = true;
+      }
+    }
+
+    // 3. Posicionamento contra Boss / Mini-Boss (inclusive desvio de telégrafos!)
+    if (currentBoss && currentBoss.hp > 0) {
+      const dx = player.x - currentBoss.x;
+      const dy = player.y - currentBoss.y;
+      const dist = Math.hypot(dx, dy);
+      const bossSafe = 320 + currentBoss.radius;
+
+      if (currentBoss.telegraphTimer > 0 && dist > 1) {
+        // Desvio lateral imediato da linha de Dash/Railgun do Boss
+        const perpX = -dy / dist;
+        const perpY = dx / dist;
+        steerX += perpX * 3.8;
+        steerY += perpY * 3.8;
+        if (dist < 260) emergencyDanger = true;
+      } else if (dist < bossSafe && dist > 1) {
+        const w = ((bossSafe - dist) / bossSafe) * 2.8;
+        steerX += (dx / dist) * w;
+        steerY += (dy / dist) * w;
+        if (dist < currentBoss.radius + 55) emergencyDanger = true;
+      }
+    }
+
+    // 4. Manter dentro das bordas da arena (evitar cantos)
+    const wallMargin = 120;
+    if (player.x < bounds.minX + wallMargin) steerX += ((bounds.minX + wallMargin - player.x) / wallMargin) * 2.4;
+    if (player.x > bounds.maxX - wallMargin) steerX -= ((player.x - (bounds.maxX - wallMargin)) / wallMargin) * 2.4;
+    if (player.y < bounds.minY + wallMargin) steerY += ((bounds.minY + wallMargin - player.y) / wallMargin) * 2.4;
+    if (player.y > bounds.maxY - wallMargin) steerY -= ((player.y - (bounds.maxY - wallMargin)) / wallMargin) * 2.4;
+
+    // 5. Coleta oportunista de Gemas de XP quando não há perigo imediato
+    if (!emergencyDanger && xpGems.length > 0 && Math.hypot(steerX, steerY) < 1.6) {
+      let bestGem = null;
+      let bestGemDist = Infinity;
+      for (let i = 0; i < xpGems.length; i++) {
+        const g = xpGems[i];
+        const gd = Math.hypot(g.x - player.x, g.y - player.y);
+        if (gd < bestGemDist) {
+          bestGemDist = gd;
+          bestGem = g;
+        }
+      }
+      if (bestGem && bestGemDist > 8) {
+        steerX += ((bestGem.x - player.x) / bestGemDist) * 1.1;
+        steerY += ((bestGem.y - player.y) / bestGemDist) * 1.1;
+      }
+    }
+
+    // 6. Órbita suave quando a arena estiver calma
+    if (Math.hypot(steerX, steerY) < 0.25) {
+      const cx = V_WIDTH * 0.5 + Math.cos(survivalTimer * 0.7) * 160;
+      const cy = V_HEIGHT * 0.5 + Math.sin(survivalTimer * 0.7) * 110;
+      const dx = cx - player.x;
+      const dy = cy - player.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 20) {
+        steerX += (dx / d) * 0.8;
+        steerY += (dy / d) * 0.8;
+      }
+    }
+
+    // Dash tático de emergência
+    if (emergencyDanger && dashCooldownTimer <= 0) {
+      if (Math.hypot(steerX, steerY) > 0.05) {
+        const sLen = Math.hypot(steerX, steerY);
+        player.vx = (steerX / sLen) * player.speed;
+        player.vy = (steerY / sLen) * player.speed;
+      }
+      triggerDash();
+    }
+
+    // Overdrive tático
+    if (overdriveCharge >= 100 && !isOverdriveActive && (currentBoss || enemies.length >= 4)) {
+      triggerOverdrive();
+    }
+
+    // Mira Twin-Stick inteligente (prioriza inimigo mais próximo ou Boss)
+    let aimTarget = null;
+    if (currentBoss && currentBoss.hp > 0 && (!nearestEnemy || Math.hypot(currentBoss.x - player.x, currentBoss.y - player.y) < 420)) {
+      aimTarget = currentBoss;
+    } else {
+      aimTarget = nearestEnemy || currentBoss;
+    }
+
+    let aimAngle = null;
+    if (aimTarget) {
+      aimAngle = Math.atan2(aimTarget.y - player.y, aimTarget.x - player.x);
+    }
+
+    const len = Math.hypot(steerX, steerY);
+    return {
+      dx: len > 0.08 ? steerX / len : 0,
+      dy: len > 0.08 ? steerY / len : 0,
+      aimAngle: aimAngle
+    };
+  }
+
+  // Dynamic Camera Zoom-Out (Escala o mundo conforme a velocidade do jogador)
     ctx.save();
     ctx.translate(V_WIDTH * 0.5, V_HEIGHT * 0.5);
     ctx.scale(currentZoom, currentZoom);
@@ -3824,23 +4481,37 @@
     ctx.font = '700 12px "JetBrains Mono", monospace';
     ctx.fillText(timeStr, tx, hpY + 13);
 
-    // Mini Matrix Status & Aim Assist
-    const stX = tx + 100;
+    // Mini Matrix Status & Aim Mode
+    const stX = tx + 86;
     ctx.font = '700 10px "JetBrains Mono", monospace';
     ctx.fillStyle = '#71717a';
     ctx.fillText(`⚡x${projectileCount} ◎x${orbitalShieldCount}${droneCount > 0 ? ` ▲x${droneCount}` : ''}`, stX, hpY + 13);
 
-    const aimBadgeX = stX + 90;
+    const aimBadgeX = stX + 74;
     ctx.font = '700 9px "JetBrains Mono", monospace';
-    if (hasAimAssist) {
+    if (autoPlayEnabled) {
       ctx.fillStyle = '#00f0ff';
-      ctx.fillText('AIM: AUTO 360°', aimBadgeX, hpY + 13);
+      ctx.fillText('AI PILOT', aimBadgeX, hpY + 13);
+    } else if (hasAimAssist) {
+      ctx.fillStyle = '#00f0ff';
+      ctx.fillText('AUTO 360°', aimBadgeX, hpY + 13);
     } else {
       ctx.fillStyle = '#71717a';
-      ctx.fillText('AIM: MANUAL', aimBadgeX, hpY + 13);
+      ctx.fillText('MANUAL', aimBadgeX, hpY + 13);
     }
 
-    // 7. Botões de Mute e Pause no Canto Direito
+    // 7. Botões de Auto, Pause e Mute no Canto Direito
+    // Botão Auto (Piloto Automático)
+    const autoBtnX = V_WIDTH - 265;
+    ctx.fillStyle = autoPlayEnabled ? 'rgba(0, 240, 255, 0.16)' : '#18181b';
+    ctx.fillRect(autoBtnX, 12, 75, 26);
+    ctx.strokeStyle = autoPlayEnabled ? '#00f0ff' : '#3f3f46';
+    ctx.strokeRect(autoBtnX, 12, 75, 26);
+    ctx.fillStyle = autoPlayEnabled ? '#00f0ff' : '#a1a1aa';
+    ctx.font = '700 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(autoPlayEnabled ? 'AUTO ON' : 'AUTO [B]', autoBtnX + 37, 29);
+
     // Botão Pause
     const pauseBtnX = V_WIDTH - 180;
     ctx.fillStyle = '#18181b';
@@ -3927,17 +4598,25 @@
       const opt = upgradeOptions[i];
       const rx = startX + i * (cardW + cardGap);
 
+      const isAiSelected = autoPlayEnabled && autoPlaySelectedCard === i;
+
       // Card Background & Technical Border
-      ctx.fillStyle = 'rgba(9, 9, 11, 0.98)';
+      ctx.fillStyle = isAiSelected ? 'rgba(0, 240, 255, 0.08)' : 'rgba(9, 9, 11, 0.98)';
       ctx.fillRect(rx, cardY, cardW, cardH);
-      ctx.strokeStyle = isMegaUpgradeModal ? '#00f0ff' : '#27272a';
-      ctx.lineWidth = isMegaUpgradeModal ? 2 : 1.5;
-      if (isMegaUpgradeModal) {
+      ctx.strokeStyle = (isMegaUpgradeModal || isAiSelected) ? '#00f0ff' : '#27272a';
+      ctx.lineWidth = (isMegaUpgradeModal || isAiSelected) ? 2 : 1.5;
+      if (isMegaUpgradeModal || isAiSelected) {
         ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 10;
       }
       ctx.strokeRect(rx, cardY, cardW, cardH);
       ctx.shadowBlur = 0;
+
+      if (isAiSelected) {
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.fillText('● AI PICKING...', rx + cardW * 0.5, cardY + cardH - 12);
+      }
 
       // Key Badge
       ctx.fillStyle = isMegaUpgradeModal ? '#00f0ff' : '#ffffff';
@@ -4038,6 +4717,13 @@
     ctx.fillStyle = '#000000';
     ctx.font = '700 14px "JetBrains Mono", monospace';
     ctx.fillText('RESTART PROTOCOL [R]', cx, btnY + 26);
+
+    if (autoPlayEnabled) {
+      const rem = Math.ceil(Math.max(0, 3.0 - autoPlayRestartTimer));
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = '700 11px "JetBrains Mono", monospace';
+      ctx.fillText(`● AI PILOT AUTO-RESTART IN ${rem}s...`, cx, btnY + 52);
+    }
 
     // Botões de Portfólio e GitHub
     const ghX = cx - 145;
