@@ -750,6 +750,23 @@
   let isMegaUpgradeModal = false;// Modal dourado/ciano com 3 Mega Upgrades lendários
   let bossDefeatedCount = 0;
 
+  // Progressão por Horda & Nível
+  let hordeTotal = 6;
+  let hordeRemainingToSpawn = 6;
+
+  function startHordeForLevel(lvl) {
+    if (lvl % 10 === 0) {
+      // Nível de Boss (10, 20, 30...): escolta reduzida e finita
+      hordeTotal = 4;
+      hordeRemainingToSpawn = 4;
+    } else {
+      // Hordas normais: menos mobs na tela, porém mais resistentes
+      hordeTotal = Math.min(22, 5 + Math.floor(lvl * 1.1));
+      hordeRemainingToSpawn = hordeTotal;
+    }
+    spawnTimer = 0.4;
+  }
+
   // Dynamic Camera Zoom
   let currentZoom = 1.0;
   let targetZoom = 1.0;
@@ -897,6 +914,7 @@
 
     spawnTimer = 0.0;
     currentSpawnInterval = BASE_SPAWN_INTERVAL;
+    startHordeForLevel(1);
     screenShake = 0.0;
     state = GameState.PLAYING;
   }
@@ -1017,10 +1035,10 @@
       survivalTimer += dt;
 
       // Dynamic Camera Zoom Calculation based on Level and Mobility
-      // O zoom se afasta gradualmente conforme os níveis avançam para revelar mais campo e hordas maiores!
-      const levelZoom = Math.max(0.50, 1.0 - (level - 1) * 0.018);
-      const dashBonus = dashActiveTimer > 0 ? 0.05 : 0.0;
-      targetZoom = Math.max(0.48, levelZoom - dashBonus);
+      // Zoom mais afastado conforme o nível sobe para dar mais visão de arena e respiro contra hordas/bosses
+      const levelZoom = Math.max(0.35, 1.0 - (level - 1) * 0.032);
+      const dashBonus = dashActiveTimer > 0 ? 0.04 : 0.0;
+      targetZoom = Math.max(0.32, levelZoom - dashBonus);
       currentZoom += (targetZoom - currentZoom) * Math.min(1.0, 3.5 * dt);
 
       // Dash timers
@@ -1089,12 +1107,18 @@
       }
       updateEmpWaves(dt);
 
-      // Enemy Spawner (Escala frequência com o nível)
-      spawnTimer += dt;
-      currentSpawnInterval = Math.max(0.35, 1.20 - (level * 0.035));
-      if (spawnTimer >= currentSpawnInterval) {
-        spawnTimer = 0;
-        spawnEnemyWave();
+      // Enemy Spawner por Horda (Sem spawn infinito por tempo)
+      if (hordeRemainingToSpawn > 0) {
+        spawnTimer += dt;
+        currentSpawnInterval = isBossEncounter ? 2.4 : Math.max(0.65, 1.15 - (level * 0.015));
+        if (spawnTimer >= currentSpawnInterval) {
+          spawnTimer = 0;
+          spawnEnemyWave();
+        }
+      } else if (!isBossEncounter && enemies.length === 0) {
+        // Matou toda a horda do nível atual -> avança para o próximo nível!
+        levelUp();
+        return;
       }
 
       // Updates
@@ -1747,14 +1771,19 @@
   }
 
   function spawnEnemyWave() {
-    // Durante a batalha com o Boss, limita os lacaios a uma escolta controlada
-    if (isBossEncounter && enemies.length >= 8) return;
+    if (hordeRemainingToSpawn <= 0) return;
+
+    // Limita simultâneos na tela para evitar poluição visual e sufoco excessivo
+    const maxSimultaneous = isBossEncounter ? 4 : 10;
+    if (enemies.length >= maxSimultaneous) return;
 
     const b = getArenaBounds();
-    const spawnCount = isBossEncounter ? 2 : Math.min(16, 1 + Math.floor(level * 0.75));
+    const batchMax = isBossEncounter ? 2 : Math.min(4, 2 + Math.floor(level * 0.15));
+    const spawnCount = Math.min(batchMax, hordeRemainingToSpawn, maxSimultaneous - enemies.length);
     const offset = 40;
 
     for (let s = 0; s < spawnCount; s++) {
+      hordeRemainingToSpawn--;
       let spawnX = 0;
       let spawnY = 0;
       const edge = Math.floor(Math.random() * 4);
@@ -1768,26 +1797,27 @@
 
       const roll = Math.random();
       let type = 'mite';
-      let hp = 20 + (survivalTimer / 30) * 12 + (level * 2);
-      let speed = 95 + (Math.random() - 0.5) * 30;
+      // Menos mobs, porém com mais vida escalada pelo nível
+      let hp = 45 + (level - 1) * 14;
+      let speed = 92 + (Math.random() - 0.5) * 24;
       let radius = 14;
       let color = '#d4d4d8'; // Zinc 300
 
-      if (survivalTimer > 12 && roll < 0.28) {
+      if (level >= 2 && roll < 0.28) {
         type = 'sniper';
-        hp = 30 + (survivalTimer / 25) * 12 + (level * 3);
-        speed = 85;
+        hp = 60 + (level - 1) * 18;
+        speed = 82;
         radius = 16;
         color = '#e4e4e7';
-      } else if (survivalTimer > 25 && roll < 0.55) {
+      } else if (level >= 3 && roll < 0.55) {
         type = 'byte';
-        hp = 45 + (survivalTimer / 20) * 15 + (level * 4);
-        speed = 70;
+        hp = 85 + (level - 1) * 24;
+        speed = 68;
         radius = 18;
         color = '#ffffff'; // Pure White
-      } else if (survivalTimer > 50 && roll < 0.22) {
+      } else if (level >= 5 && roll < 0.22) {
         type = 'corruptor';
-        hp = 160 + (survivalTimer / 15) * 40 + (level * 8);
+        hp = 220 + (level - 1) * 55;
         speed = 45;
         radius = 28;
         color = '#a1a1aa'; // Zinc 400
@@ -2019,23 +2049,16 @@
   }
 
   function gainXP(amt) {
-    // Durante o confronto com o Boss do Setor, o XP acumula até encher mas segura o level-up
-    if (isBossEncounter && currentXP + amt >= targetXP) {
-      currentXP = targetXP - 1;
-      score += amt;
-      return;
-    }
-
-    currentXP += amt;
+    // Gemas de dados agora alimentam o Score e aceleram a carga de Overdrive
     score += amt;
-    if (currentXP >= targetXP) {
-      levelUp();
+    if (!isOverdriveActive && overdriveCharge < 100) {
+      overdriveCharge = Math.min(100, overdriveCharge + Math.max(1.5, amt * 0.12));
     }
   }
 
   function levelUp() {
-    currentXP -= targetXP;
     level++;
+    currentXP = 0;
     targetXP = Math.round(BASE_XP_LEVEL_UP * Math.pow(1.18, level - 1));
 
     // Bônus passivo a cada nível: +4% Velocidade e +5% Max HP (com cura de 10%)
@@ -2043,18 +2066,19 @@
     player.maxHealth *= 1.05;
     player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.10);
 
-    addFloatingText(player.x, player.y - 45, `PROTOCOL LEVEL ${level}!`, '#fafafa');
-    addFloatingText(player.x, player.y - 70, '+4% SPEED & HP OVERCLOCK', '#ffffff');
+    addFloatingText(player.x, player.y - 45, `HORDA ${level - 1} LIMPA!`, '#fafafa');
+    addFloatingText(player.x, player.y - 70, `PROTOCOL LEVEL ${level}`, '#00f0ff');
     createExplosion(player.x, player.y, '#ffffff', 32);
     playSynthSound('levelup');
 
-    // Milestone Vacuum: Atração total de XP no mapa (Vampire Survivors mechanic)
+    // Milestone Vacuum: Atração total de gemas no mapa
     for (const g of xpGems) {
       g.isVacuumed = true;
     }
 
     // A cada 10 níveis (Nível 10, 20, 30...), INICIA O BOSS DO SETOR!
     if (level % 10 === 0) {
+      startHordeForLevel(level);
       spawnBoss(level);
     } else {
       openUpgradeModal();
@@ -2152,6 +2176,8 @@
           break;
       }
       isMegaUpgradeModal = false;
+      level++;
+      startHordeForLevel(level);
       state = GameState.PLAYING;
       return;
     }
@@ -2190,6 +2216,7 @@
     }
 
     isMegaUpgradeModal = false;
+    startHordeForLevel(level);
     state = GameState.PLAYING;
   }
 
@@ -3258,21 +3285,25 @@
     ctx.font = '700 12px "JetBrains Mono", monospace';
     ctx.fillText(`LVL ${level}`, lvlX, hpY + 13);
 
-    // 3. XP Bar
-    const xpPct = Math.max(0, Math.min(1, currentXP / targetXP));
+    // 3. Barra de Progresso da Horda
+    const hordeAliveOrPending = hordeRemainingToSpawn + enemies.length;
+    const hordeKilled = Math.max(0, hordeTotal - hordeAliveOrPending);
+    const hordePct = isBossEncounter
+      ? (currentBoss ? Math.max(0, 1 - currentBoss.hp / currentBoss.maxHp) : 1)
+      : Math.max(0, Math.min(1, hordeKilled / Math.max(1, hordeTotal)));
     const xpX = lvlX + 65;
     const xpW = 150;
     ctx.fillStyle = '#18181b';
     ctx.fillRect(xpX, hpY, xpW, hpH);
-    ctx.fillStyle = '#a1a1aa';
-    ctx.fillRect(xpX, hpY, xpW * xpPct, hpH);
+    ctx.fillStyle = isBossEncounter ? '#ef4444' : '#00f0ff';
+    ctx.fillRect(xpX, hpY, xpW * hordePct, hpH);
     ctx.strokeStyle = '#3f3f46';
     ctx.lineWidth = 1;
     ctx.strokeRect(xpX, hpY, xpW, hpH);
 
-    ctx.fillStyle = '#71717a';
+    ctx.fillStyle = '#e4e4e7';
     ctx.font = '700 10px "JetBrains Mono", monospace';
-    ctx.fillText(`XP ${Math.floor(currentXP)}/${Math.floor(targetXP)}`, xpX + 6, hpY + 13);
+    ctx.fillText(isBossEncounter ? `TITAN BOSS // LVL ${level}` : `HORDA ${hordeKilled}/${hordeTotal}`, xpX + 6, hpY + 13);
 
     // Divisor técnico 2
     ctx.beginPath();
