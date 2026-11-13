@@ -750,21 +750,75 @@
   let isMegaUpgradeModal = false;// Modal dourado/ciano com 3 Mega Upgrades lendários
   let bossDefeatedCount = 0;
 
-  // Progressão por Horda & Nível
+  // Progressão por Horda, Roleta de Modificadores, Mini-Chefes (5, 15, 25...) e Chefes (10, 20, 30...)
+  const HORDE_MODIFIERS = [
+    { id: 'standard', label: 'SWARM PROTOCOL', color: '#a1a1aa', hpMult: 1.0, speedMult: 1.0, sizeMult: 1.0, countDelta: 0, sniperBias: 0.25 },
+    { id: 'blitz', label: 'BLITZ SURGE // +VELOCIDADE', color: '#00f0ff', hpMult: 0.85, speedMult: 1.25, sizeMult: 0.95, countDelta: 2, sniperBias: 0.20 },
+    { id: 'phalanx', label: 'IRON PHALANX // +BLINDAGEM', color: '#f59e0b', hpMult: 1.38, speedMult: 0.85, sizeMult: 1.15, countDelta: -1, sniperBias: 0.18 },
+    { id: 'sniper_grid', label: 'SNIPER GRID // FOGO CRUZADO', color: '#ec4899', hpMult: 1.05, speedMult: 1.0, sizeMult: 1.0, countDelta: 0, sniperBias: 0.55 },
+    { id: 'overclock', label: 'OVERCLOCKED PACK // ALTA PRESSÃO', color: '#ef4444', hpMult: 1.15, speedMult: 1.15, sizeMult: 1.05, countDelta: 1, sniperBias: 0.30 }
+  ];
+
+  const MINI_BOSS_POOL = [
+    { id: 'stalker', name: 'VORTEX STALKER', subtitle: 'ASSASSINO DE DASH', color: '#f59e0b', radius: 34, speed: 120 },
+    { id: 'artillery', name: 'PHANTOM ARTILLERY', subtitle: 'BOMBARDEIO & MINAS', color: '#ec4899', radius: 36, speed: 75 },
+    { id: 'warden', name: 'AEGIS WARDEN', subtitle: 'ESPIRAL BLINDADA', color: '#00f0ff', radius: 38, speed: 78 }
+  ];
+
+  const BOSS_POOL = [
+    { id: 'goliath', name: 'CYBER GOLIATH // DREADNOUGHT', subtitle: 'ARTILHARIA & RAILGUN', color: '#ef4444', radius: 54, speed: 60 },
+    { id: 'viper', name: 'NEON VIPER // APEX PHANTOM', subtitle: 'DASH DUPLO & MINAS', color: '#00f0ff', radius: 46, speed: 115 },
+    { id: 'overmind', name: 'OMEGA OVERMIND // MATRIX CORE', subtitle: 'BULLET-HELL & TELEGUIDADOS', color: '#ec4899', radius: 56, speed: 52 },
+    { id: 'architect', name: 'CHRONO ARCHITECT // SINGULARITY', subtitle: 'BOMBAS DE FRAGMENTAÇÃO', color: '#f59e0b', radius: 50, speed: 70 }
+  ];
+
   let hordeTotal = 6;
   let hordeRemainingToSpawn = 6;
+  let currentHordeMod = HORDE_MODIFIERS[0];
+  let lastMiniBossId = null;
+  let lastBossId = null;
+  let hordeBannerText = '';
+  let hordeBannerColor = '#00f0ff';
+  let hordeBannerTimer = 0;
+
+  function pickFromRoulette(pool, lastId) {
+    if (pool.length <= 1) return pool[0];
+    const candidates = pool.filter((item) => item.id !== lastId);
+    const source = candidates.length > 0 ? candidates : pool;
+    return source[Math.floor(Math.random() * source.length)];
+  }
 
   function startHordeForLevel(lvl) {
     if (lvl % 10 === 0) {
-      // Nível de Boss (10, 20, 30...): escolta reduzida e finita
+      // Nível de Chefe Titã (10, 20, 30...): escolta reduzida e finita
       hordeTotal = 4;
       hordeRemainingToSpawn = 4;
-    } else {
-      // Hordas normais: menos mobs na tela, porém mais resistentes
-      hordeTotal = Math.min(22, 5 + Math.floor(lvl * 1.1));
-      hordeRemainingToSpawn = hordeTotal;
+      currentHordeMod = HORDE_MODIFIERS[0];
+      spawnTimer = 1.6;
+      return;
     }
+
+    if (lvl % 5 === 0) {
+      // Nível de Mini-Chefe (5, 15, 25...): mini-chefe da roleta + escolta curta
+      hordeTotal = 3;
+      hordeRemainingToSpawn = 3;
+      currentHordeMod = HORDE_MODIFIERS[0];
+      spawnMiniBoss(lvl);
+      spawnTimer = 1.4;
+      return;
+    }
+
+    // Hordas normais com Roleta de Modificadores (menos mobs, porém mais resistentes)
+    currentHordeMod = lvl === 1 ? HORDE_MODIFIERS[0] : pickFromRoulette(HORDE_MODIFIERS, currentHordeMod.id);
+    hordeTotal = Math.max(4, Math.min(22, 5 + Math.floor(lvl * 1.1) + (currentHordeMod.countDelta || 0)));
+    hordeRemainingToSpawn = hordeTotal;
     spawnTimer = 0.4;
+
+    if (lvl >= 2) {
+      hordeBannerText = `HORDA ${lvl} // ${currentHordeMod.label}`;
+      hordeBannerColor = currentHordeMod.color;
+      hordeBannerTimer = 2.8;
+    }
   }
 
   // Dynamic Camera Zoom
@@ -879,6 +933,11 @@
     currentBoss = null;
     isMegaUpgradeModal = false;
     bossDefeatedCount = 0;
+    lastMiniBossId = null;
+    lastBossId = null;
+    currentHordeMod = HORDE_MODIFIERS[0];
+    hordeBannerTimer = 0;
+    hordeBannerText = '';
 
     currentZoom = 1.0;
     targetZoom = 1.0;
@@ -1057,15 +1116,11 @@
         }
       }
 
-      // Elite Threat Anomaly Warning & Trigger (somente fora de confrontos com Boss)
-      if (!isBossEncounter && survivalTimer >= nextEliteTime) {
-        nextEliteTime += 60.0;
-        eliteWarningTimer = 3.5;
-        playSynthSound('elite');
-        spawnEliteEnemy();
-      }
       if (eliteWarningTimer > 0) {
         eliteWarningTimer = Math.max(0, eliteWarningTimer - dt);
+      }
+      if (hordeBannerTimer > 0) {
+        hordeBannerTimer = Math.max(0, hordeBannerTimer - dt);
       }
 
       if (player.invulnerableTimer > 0) {
@@ -1319,80 +1374,384 @@
     return closest || currentBoss;
   }
 
-  function spawnBoss(bossLevel) {
+  function spawnBossFromPool(bossLevel, isMiniBoss) {
     isBossEncounter = true;
     const b = getArenaBounds();
-    const bossHp = 1000 + (bossLevel * 80);
-    const bossNames = {
-      10: 'TITAN PROTOCOL: CYBER GOLIATH T-10',
-      20: 'APEX GLITCH LEVIATHAN T-20',
-      30: 'OMEGA OVERMIND CORE T-30'
-    };
-    const bName = bossNames[bossLevel] || `TITAN PROTOCOL T-${bossLevel}`;
+    const pool = isMiniBoss ? MINI_BOSS_POOL : BOSS_POOL;
+    const spec = pickFromRoulette(pool, isMiniBoss ? lastMiniBossId : lastBossId);
+    if (isMiniBoss) {
+      lastMiniBossId = spec.id;
+    } else {
+      lastBossId = spec.id;
+    }
+
+    const baseHp = isMiniBoss
+      ? 420 + (bossLevel * 65)
+      : 1150 + (bossLevel * 120);
+
+    // Posição de entrada aleatória nas bordas superiores/laterais
+    const entrySide = Math.floor(Math.random() * 3);
+    let sx = V_WIDTH * 0.5;
+    let sy = b.minY - 110;
+    if (entrySide === 1) { sx = b.minX - 90; sy = V_HEIGHT * 0.35; }
+    if (entrySide === 2) { sx = b.maxX + 90; sy = V_HEIGHT * 0.35; }
 
     currentBoss = {
-      name: bName,
+      name: `${spec.name} // LVL ${bossLevel}`,
+      subtitle: spec.subtitle,
+      archetype: spec.id,
+      isMiniBoss: isMiniBoss,
       level: bossLevel,
-      x: V_WIDTH * 0.5,
-      y: b.minY - 120,
-      targetY: b.minY + 110,
-      hp: bossHp,
-      maxHp: bossHp,
-      radius: 52,
-      speed: 46,
-      shootTimer: 2.0,
+      x: sx,
+      y: sy,
+      hp: baseHp,
+      maxHp: baseHp,
+      radius: spec.radius,
+      speed: spec.speed,
+      color: spec.color,
+      shootTimer: 1.5,
       phaseTimer: 0,
-      color: '#ffffff',
+      patternIndex: 0,
+      spiralAngle: 0,
+      burstShotsLeft: 0,
+      burstTick: 0,
+      telegraphTimer: 0,
+      dashTimer: 0,
+      dashCombo: 0,
+      dashDirX: 0,
+      dashDirY: 0,
+      dashCooldown: 2.8,
+      aimLockX: player.x,
+      aimLockY: player.y,
       isBoss: true
     };
 
-    screenShake = 18;
-    playSynthSound('boss_spawn');
-    eliteWarningTimer = 4.0;
+    screenShake = isMiniBoss ? 12 : 18;
+    playSynthSound(isMiniBoss ? 'elite' : 'boss_spawn');
+    eliteWarningTimer = 3.5;
+    hordeBannerText = `${isMiniBoss ? '⚠ MINI-CHEFE' : '☠ CHEFE TITÃ'}: ${spec.name} [${spec.subtitle}]`;
+    hordeBannerColor = spec.color;
+    hordeBannerTimer = 3.5;
+  }
+
+  function spawnMiniBoss(bossLevel) {
+    spawnBossFromPool(bossLevel, true);
+  }
+
+  function spawnBoss(bossLevel) {
+    spawnBossFromPool(bossLevel, false);
+  }
+
+  function fireBossBullet(x, y, ang, speed, radius, damage, color, extras = {}) {
+    enemyBullets.push({
+      x: x,
+      y: y,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      radius: radius,
+      damage: damage,
+      life: extras.life || 4.4,
+      maxLife: extras.life || 4.4,
+      color: color || '#ffffff',
+      homing: extras.homing || 0,
+      homingTimer: extras.homingTimer || 0,
+      explodeAfter: extras.explodeAfter || 0,
+      explodeCount: extras.explodeCount || 0,
+      explodeSpeed: extras.explodeSpeed || 240,
+      explodeColor: extras.explodeColor || color || '#ffffff'
+    });
   }
 
   function updateBoss(dt) {
     if (!currentBoss || currentBoss.hp <= 0) return;
     const b = currentBoss;
+    const bounds = getArenaBounds();
+    const isEnraged = b.hp < b.maxHp * 0.5;
+    const pace = isEnraged ? 1.25 : 1.0;
 
-    // Movimentação do Boss (descida e patrulha senoidal elegante)
-    if (b.y < b.targetY) {
-      b.y += 110 * dt;
-    } else {
-      b.phaseTimer += dt;
-      b.x = (V_WIDTH * 0.5) + Math.sin(b.phaseTimer * 0.75) * ((V_WIDTH * 0.5) - 220);
-      b.y = b.targetY + Math.cos(b.phaseTimer * 1.5) * 30;
-    }
+    b.phaseTimer += dt;
 
-    // Ataques do Boss
-    b.shootTimer -= dt;
-    if (b.shootTimer <= 0) {
-      b.shootTimer = 2.0 + Math.random() * 0.4;
-      const aimAngle = Math.atan2(player.y - b.y, player.x - b.x);
+    // 1. Execução de Dash ativo (Vortex Stalker / Neon Viper)
+    if (b.dashTimer > 0) {
+      b.dashTimer -= dt;
+      const dashSpeed = b.isMiniBoss ? 720 : 840;
+      b.x += b.dashDirX * dashSpeed * dt;
+      b.y += b.dashDirY * dashSpeed * dt;
 
-      // Rajada quíntupla de esferas de plasma em leque
-      for (let s = -2; s <= 2; s++) {
-        const sang = aimAngle + s * 0.18;
-        enemyBullets.push({
-          x: b.x + Math.cos(sang) * (b.radius + 10),
-          y: b.y + Math.sin(sang) * (b.radius + 10),
-          vx: Math.cos(sang) * 280,
-          vy: Math.sin(sang) * 280,
-          radius: 7,
-          damage: 18,
-          life: 4.5
-        });
+      if (Math.random() < 0.7) {
+        createSparks(b.x, b.y, b.color, 2);
       }
-      playSynthSound('enemy_shot');
+
+      // Neon Viper solta minas de plasma no rastro do dash
+      if (b.archetype === 'viper' && Math.random() < 0.25) {
+        fireBossBullet(b.x, b.y, 0, 0, 8, 16, '#00f0ff', { life: 2.8, explodeAfter: 1.3, explodeCount: 4, explodeSpeed: 210 });
+      }
+
+      if (b.dashTimer <= 0) {
+        // Ao concluir o dash: dispara estilhaços laterais
+        const perp = Math.atan2(b.dashDirY, b.dashDirX) + Math.PI * 0.5;
+        for (let k = 0; k < 4; k++) {
+          fireBossBullet(b.x, b.y, perp + k * (Math.PI * 0.5), 250, 6, 15, b.color);
+        }
+        playSynthSound('enemy_shot');
+
+        if (b.dashCombo > 0) {
+          b.dashCombo--;
+          const ang = Math.atan2(player.y - b.y, player.x - b.x);
+          b.dashDirX = Math.cos(ang);
+          b.dashDirY = Math.sin(ang);
+          b.telegraphTimer = 0.42;
+        }
+      }
+    } else if (b.telegraphTimer > 0) {
+      // 2. Telegrafo visual antes de Dash ou Railgun
+      b.telegraphTimer -= dt;
+      if (b.telegraphTimer <= 0) {
+        if (b.archetype === 'goliath') {
+          // Railgun hiper-veloz triplo na direção travada
+          const railAng = Math.atan2(b.aimLockY - b.y, b.aimLockX - b.x);
+          for (let s = -1; s <= 1; s++) {
+            fireBossBullet(b.x, b.y, railAng + s * 0.05, 560, 8, 22, '#ef4444', { life: 3.0 });
+          }
+          screenShake = Math.max(screenShake, 7);
+          playSynthSound('laser_heavy');
+        } else {
+          // Inicia o Dash telegrafado
+          b.dashTimer = b.isMiniBoss ? 0.36 : 0.42;
+          playSynthSound('dash');
+        }
+      }
+    } else {
+      // 3. Movimentação & Padrões únicos por Arquétipo
+      const toPlayerAng = Math.atan2(player.y - b.y, player.x - b.x);
+      const distToPlayer = Math.hypot(player.x - b.x, player.y - b.y);
+
+      switch (b.archetype) {
+        case 'stalker': {
+          // Orbita o jogador em média distância e prepara Dash telegrafado
+          const orbitAng = toPlayerAng + Math.PI * 0.42;
+          const radialPush = distToPlayer > 310 ? 0.6 : distToPlayer < 220 ? -0.6 : 0;
+          b.x += (Math.cos(orbitAng) + Math.cos(toPlayerAng) * radialPush) * b.speed * pace * dt;
+          b.y += (Math.sin(orbitAng) + Math.sin(toPlayerAng) * radialPush) * b.speed * pace * dt;
+
+          b.dashCooldown -= dt * pace;
+          if (b.dashCooldown <= 0) {
+            b.dashCooldown = 3.1;
+            b.dashDirX = Math.cos(toPlayerAng);
+            b.dashDirY = Math.sin(toPlayerAng);
+            b.telegraphTimer = 0.65;
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 1.9;
+            for (let s = -1; s <= 1; s++) {
+              fireBossBullet(b.x, b.y, toPlayerAng + s * 0.22, 300, 6, 14, b.color);
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'artillery': {
+          // Mantém distância tática e alterna anéis radiais + minas explosivas
+          const desired = 360;
+          const moveSign = distToPlayer > desired + 40 ? 1 : distToPlayer < desired - 40 ? -0.9 : 0;
+          const strafe = toPlayerAng + Math.PI * 0.5;
+          b.x += (Math.cos(toPlayerAng) * moveSign + Math.cos(strafe) * 0.65) * b.speed * pace * dt;
+          b.y += (Math.sin(toPlayerAng) * moveSign + Math.sin(strafe) * 0.65) * b.speed * pace * dt;
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 2.1;
+            b.patternIndex = (b.patternIndex + 1) % 2;
+            if (b.patternIndex === 0) {
+              // Anel de 8 projéteis
+              for (let k = 0; k < 8; k++) {
+                fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 8 + b.phaseTimer, 240, 6.5, 15, b.color);
+              }
+            } else {
+              // 2 Orbes explosivas lentas que detonam em 6 estilhaços
+              for (let s = -1; s <= 1; s += 2) {
+                fireBossBullet(b.x, b.y, toPlayerAng + s * 0.26, 165, 10, 18, '#f59e0b', {
+                  life: 3.0,
+                  explodeAfter: 1.35,
+                  explodeCount: 6,
+                  explodeSpeed: 245,
+                  explodeColor: '#ec4899'
+                });
+              }
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'warden': {
+          // Avança firme enquanto dispara espirais duplas giratórias
+          b.x += Math.cos(toPlayerAng) * b.speed * pace * dt;
+          b.y += Math.sin(toPlayerAng) * b.speed * pace * dt;
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 0.24;
+            b.spiralAngle += 0.42;
+            fireBossBullet(b.x, b.y, b.spiralAngle, 235, 6, 14, b.color);
+            fireBossBullet(b.x, b.y, b.spiralAngle + Math.PI, 235, 6, 14, '#ffffff');
+            b.burstShotsLeft = (b.burstShotsLeft + 1) % 10;
+            if (b.burstShotsLeft === 0) {
+              b.shootTimer = 1.5; // Breve janela de respiro após cada ciclo de espiral
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'goliath': {
+          // Patrulha horizontal + ciclo de 3 padrões (Leque 7-way -> Anel 14-way -> Railgun telegrafado)
+          const targetX = (V_WIDTH * 0.5) + Math.sin(b.phaseTimer * 0.7) * Math.min(420, bounds.width * 0.34);
+          const targetY = bounds.minY + 130 + Math.cos(b.phaseTimer * 1.3) * 45;
+          b.x += (targetX - b.x) * Math.min(1, 2.5 * dt);
+          b.y += (targetY - b.y) * Math.min(1, 2.5 * dt);
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.patternIndex = (b.patternIndex + 1) % 3;
+            if (b.patternIndex === 0) {
+              for (let s = -3; s <= 3; s++) {
+                fireBossBullet(b.x, b.y, toPlayerAng + s * 0.15, 290, 7, 18, '#ef4444');
+              }
+              b.shootTimer = 1.75;
+              playSynthSound('enemy_shot');
+            } else if (b.patternIndex === 1) {
+              for (let k = 0; k < 14; k++) {
+                fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 14 + b.phaseTimer, 240, 6.5, 16, '#ffffff');
+              }
+              b.shootTimer = 1.85;
+              playSynthSound('enemy_shot');
+            } else {
+              // Trava mira para Railgun telegrafado
+              b.aimLockX = player.x;
+              b.aimLockY = player.y;
+              b.telegraphTimer = 0.85;
+              b.shootTimer = 2.0;
+            }
+          }
+          break;
+        }
+
+        case 'viper': {
+          // Interceptador ágil: faz combo de 2 Dashes + explosão de vórtice 12-way
+          const strafe = toPlayerAng + Math.PI * 0.45;
+          b.x += (Math.cos(strafe) + Math.cos(toPlayerAng) * 0.35) * b.speed * pace * dt;
+          b.y += (Math.sin(strafe) + Math.sin(toPlayerAng) * 0.35) * b.speed * pace * dt;
+
+          b.dashCooldown -= dt * pace;
+          if (b.dashCooldown <= 0) {
+            b.dashCooldown = 3.8;
+            b.dashCombo = 1; // 2 dashes em sequência!
+            b.dashDirX = Math.cos(toPlayerAng);
+            b.dashDirY = Math.sin(toPlayerAng);
+            b.telegraphTimer = 0.55;
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 1.9;
+            for (let k = 0; k < 12; k++) {
+              fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 12 + b.phaseTimer * 2, 265, 6, 16, '#00f0ff');
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'overmind': {
+          // Flutua para o centro e solta espirais duplas + buscadores com curva suave
+          const cx = V_WIDTH * 0.5 + Math.cos(b.phaseTimer * 0.45) * 140;
+          const cy = V_HEIGHT * 0.5 + Math.sin(b.phaseTimer * 0.65) * 110;
+          b.x += (cx - b.x) * Math.min(1, 1.8 * dt);
+          b.y += (cy - b.y) * Math.min(1, 1.8 * dt);
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 0.22;
+            b.spiralAngle += (b.patternIndex % 2 === 0 ? 0.36 : -0.36);
+            fireBossBullet(b.x, b.y, b.spiralAngle, 230, 6.5, 16, '#ec4899');
+            fireBossBullet(b.x, b.y, b.spiralAngle + Math.PI * 0.66, 230, 6.5, 16, '#ffffff');
+            fireBossBullet(b.x, b.y, b.spiralAngle + Math.PI * 1.33, 230, 6.5, 16, '#00f0ff');
+
+            b.burstShotsLeft = (b.burstShotsLeft + 1) % 12;
+            if (b.burstShotsLeft === 0) {
+              // Lança 3 orbes teleguiados suaves no fim do ciclo
+              for (let s = -1; s <= 1; s++) {
+                fireBossBullet(b.x, b.y, toPlayerAng + s * 0.5, 220, 8, 18, '#f59e0b', {
+                  life: 4.0,
+                  homing: 1.7,
+                  homingTimer: 1.5
+                });
+              }
+              b.patternIndex++;
+              b.shootTimer = 1.4;
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'architect': {
+          // Alterna bombas de singularidade (explodem em 8 pontas) + tiros de satélite rápidos
+          const desired = 340;
+          const pull = distToPlayer > desired + 45 ? 0.8 : distToPlayer < desired - 45 ? -0.8 : 0;
+          const orbit = toPlayerAng - Math.PI * 0.5;
+          b.x += (Math.cos(orbit) * 0.75 + Math.cos(toPlayerAng) * pull) * b.speed * pace * dt;
+          b.y += (Math.sin(orbit) * 0.75 + Math.sin(toPlayerAng) * pull) * b.speed * pace * dt;
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.patternIndex = (b.patternIndex + 1) % 2;
+            if (b.patternIndex === 0) {
+              // 3 bombas de fragmentação
+              for (let s = -1; s <= 1; s++) {
+                fireBossBullet(b.x, b.y, toPlayerAng + s * 0.38, 175, 10, 18, '#f59e0b', {
+                  life: 3.2,
+                  explodeAfter: 1.35,
+                  explodeCount: 8,
+                  explodeSpeed: 255,
+                  explodeColor: '#ffffff'
+                });
+              }
+              b.shootTimer = 2.0;
+            } else {
+              // Tiros rápidos saindo dos 4 satélites orbitais
+              for (let k = 0; k < 4; k++) {
+                const satAng = b.phaseTimer * 2.2 + (k * Math.PI * 0.5);
+                const sx = b.x + Math.cos(satAng) * (b.radius + 26);
+                const sy = b.y + Math.sin(satAng) * (b.radius + 26);
+                const aim = Math.atan2(player.y - sy, player.x - sx);
+                fireBossBullet(sx, sy, aim, 370, 6, 16, '#00f0ff');
+              }
+              b.shootTimer = 1.4;
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+      }
     }
+
+    // Mantém o Boss sempre dentro da arena visível
+    b.x = Math.max(bounds.minX + b.radius, Math.min(bounds.maxX - b.radius, b.x));
+    b.y = Math.max(bounds.minY + b.radius, Math.min(bounds.maxY - b.radius, b.y));
 
     // Colisão direta com o jogador
     if (player.invulnerableTimer <= 0 && Math.hypot(b.x - player.x, b.y - player.y) <= b.radius + 18) {
-      player.health -= 25;
+      const dmg = b.isMiniBoss ? 20 : 25;
+      player.health -= dmg;
       player.invulnerableTimer = 0.7;
       screenShake = 14;
       createSparks(player.x, player.y, '#ffffff', 14);
-      addFloatingText(player.x, player.y - 25, '-25 HP [BOSS COLLISION]', '#ef4444');
+      addFloatingText(player.x, player.y - 25, `-${dmg} HP [${b.isMiniBoss ? 'MINI-BOSS' : 'BOSS'}]`, '#ef4444');
       playSynthSound('hit');
 
       if (player.health <= 0) {
@@ -1403,35 +1762,47 @@
 
   function defeatBoss() {
     if (!currentBoss) return;
+    const defeated = currentBoss;
+    const wasMiniBoss = !!defeated.isMiniBoss;
+
     bossDefeatedCount++;
-    score += currentBoss.maxHp * 5;
-    createExplosion(currentBoss.x, currentBoss.y, '#ffffff', 55);
-    createExplosion(currentBoss.x, currentBoss.y, '#00f0ff', 35);
-    screenShake = 22;
+    score += defeated.maxHp * 5;
+    createExplosion(defeated.x, defeated.y, '#ffffff', wasMiniBoss ? 38 : 55);
+    createExplosion(defeated.x, defeated.y, defeated.color || '#00f0ff', wasMiniBoss ? 24 : 35);
+    screenShake = wasMiniBoss ? 16 : 22;
     playSynthSound('boss_defeat');
 
-    // Drops épicos de XP
-    for (let i = 0; i < 8; i++) {
-      const ang = (i * Math.PI * 2) / 8;
+    // Drops de gemas de XP
+    const gemCount = wasMiniBoss ? 5 : 8;
+    for (let i = 0; i < gemCount; i++) {
+      const ang = (i * Math.PI * 2) / gemCount;
       xpGems.push({
-        x: currentBoss.x + Math.cos(ang) * 45,
-        y: currentBoss.y + Math.sin(ang) * 45,
+        x: defeated.x + Math.cos(ang) * 40,
+        y: defeated.y + Math.sin(ang) * 40,
         vx: Math.cos(ang) * 80,
         vy: Math.sin(ang) * 80,
-        value: 60,
+        value: wasMiniBoss ? 40 : 60,
         isVacuumed: true
       });
     }
 
-    // Cura tática de 40% do HP Máximo
+    currentBoss = null;
+    isBossEncounter = false;
+    hordeRemainingToSpawn = 0; // Encerra reforços após derrotar o chefe/mini-chefe
+
+    if (wasMiniBoss) {
+      player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.25);
+      overdriveCharge = Math.min(100, overdriveCharge + 35);
+      addFloatingText(player.x, player.y - 45, '★ MINI-BOSS PURGED! ★', defeated.color || '#f59e0b');
+      addFloatingText(player.x, player.y - 70, '+25% REPAIR // +35% OD', '#10b981');
+      return;
+    }
+
+    // Chefe Titã (10, 20, 30...): Cura 40% e libera Mega Upgrade!
     player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.40);
     addFloatingText(player.x, player.y - 45, '★ SECTOR TITAN PURGED! ★', '#ffffff');
     addFloatingText(player.x, player.y - 70, '+40% REPAIR PROTOCOL', '#10b981');
 
-    currentBoss = null;
-    isBossEncounter = false;
-
-    // Dispara a entrega de 3 MEGA UPGRADES!
     setTimeout(() => {
       openMegaUpgradeModal();
     }, 600);
@@ -1681,9 +2052,42 @@
   function updateEnemyBullets(dt) {
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
       const b = enemyBullets[i];
+
+      // Curva teleguiada suave (para projéteis do Overmind)
+      if (b.homing > 0 && b.homingTimer > 0) {
+        b.homingTimer -= dt;
+        const spd = Math.hypot(b.vx, b.vy);
+        if (spd > 1) {
+          const curAng = Math.atan2(b.vy, b.vx);
+          const targetAng = Math.atan2(player.y - b.y, player.x - b.x);
+          let diff = targetAng - curAng;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          const nextAng = curAng + Math.max(-b.homing * dt, Math.min(b.homing * dt, diff));
+          b.vx = Math.cos(nextAng) * spd;
+          b.vy = Math.sin(nextAng) * spd;
+        }
+      }
+
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
+
+      // Detonação de minas/bombas de fragmentação
+      if (b.explodeAfter > 0) {
+        b.explodeAfter -= dt;
+        if (b.explodeAfter <= 0) {
+          const cnt = b.explodeCount || 6;
+          const spd = b.explodeSpeed || 240;
+          for (let k = 0; k < cnt; k++) {
+            const ang = (k * Math.PI * 2) / cnt;
+            fireBossBullet(b.x, b.y, ang, spd, 5.5, 14, b.explodeColor || b.color || '#ffffff', { life: 3.0 });
+          }
+          createSparks(b.x, b.y, b.color || '#f59e0b', 10);
+          enemyBullets.splice(i, 1);
+          continue;
+        }
+      }
 
       // Colisão com o jogador
       if (player.invulnerableTimer <= 0 && Math.hypot(b.x - player.x, b.y - player.y) <= b.radius + 16) {
@@ -1710,16 +2114,18 @@
   function drawEnemyBullets() {
     ctx.save();
     for (const b of enemyBullets) {
-      ctx.shadowColor = '#ffffff';
-      ctx.shadowBlur = 8;
-      ctx.fillStyle = '#ffffff';
+      const col = b.color || '#ffffff';
+      const pulse = b.explodeAfter > 0 ? (1 + Math.sin(survivalTimer * 18) * 0.18) : 1;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = b.explodeAfter > 0 ? 14 : 8;
+      ctx.fillStyle = col;
       ctx.beginPath();
-      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.arc(b.x, b.y, b.radius * pulse, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#18181b';
       ctx.beginPath();
-      ctx.arc(b.x, b.y, b.radius * 0.45, 0, Math.PI * 2);
+      ctx.arc(b.x, b.y, b.radius * 0.45 * pulse, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -1795,33 +2201,40 @@
         case 3: spawnX = b.minX - offset; spawnY = b.minY + Math.random() * b.height; break;
       }
 
+      const mod = currentHordeMod || HORDE_MODIFIERS[0];
+      const sniperThreshold = level >= 2 ? (mod.sniperBias || 0.28) : 0;
       const roll = Math.random();
       let type = 'mite';
-      // Menos mobs, porém com mais vida escalada pelo nível
+      // Menos mobs, porém com mais vida escalada pelo nível + modificador da roleta
       let hp = 45 + (level - 1) * 14;
       let speed = 92 + (Math.random() - 0.5) * 24;
       let radius = 14;
       let color = '#d4d4d8'; // Zinc 300
 
-      if (level >= 2 && roll < 0.28) {
+      if (level >= 2 && roll < sniperThreshold) {
         type = 'sniper';
         hp = 60 + (level - 1) * 18;
         speed = 82;
         radius = 16;
         color = '#e4e4e7';
-      } else if (level >= 3 && roll < 0.55) {
+      } else if (level >= 3 && roll < sniperThreshold + 0.28) {
         type = 'byte';
         hp = 85 + (level - 1) * 24;
         speed = 68;
         radius = 18;
         color = '#ffffff'; // Pure White
-      } else if (level >= 5 && roll < 0.22) {
+      } else if (level >= 5 && roll > 0.80) {
         type = 'corruptor';
         hp = 220 + (level - 1) * 55;
         speed = 45;
         radius = 28;
         color = '#a1a1aa'; // Zinc 400
       }
+
+      hp = Math.round(hp * (mod.hpMult || 1.0));
+      speed = speed * (mod.speedMult || 1.0);
+      radius = Math.round(radius * (mod.sizeMult || 1.0));
+      if (mod.id !== 'standard') color = mod.color;
 
       enemies.push({
         x: spawnX,
@@ -1930,8 +2343,9 @@
           e.y += Math.sin(angle + Math.PI * 0.5) * (e.speed * 0.6) * dt;
         }
 
-        e.x = Math.max(20, Math.min(V_WIDTH - 20, e.x));
-        e.y = Math.max(60, Math.min(V_HEIGHT - 20, e.y));
+        const bounds = getArenaBounds();
+        e.x = Math.max(bounds.minX + 16, Math.min(bounds.maxX - 16, e.x));
+        e.y = Math.max(bounds.minY + 16, Math.min(bounds.maxY - 16, e.y));
 
         // Disparo de projétil inimigo com recarga
         e.shootTimer = (e.shootTimer || 2.0) - dt;
@@ -2440,20 +2854,41 @@
   function drawBoss() {
     if (!currentBoss || currentBoss.hp <= 0) return;
     const b = currentBoss;
+    const col = b.color || '#ef4444';
 
     ctx.save();
+
+    // Linha de telégrafo visual antes de Dash (Stalker / Viper) ou Railgun (Goliath)
+    if (b.telegraphTimer > 0) {
+      const aimAng = b.archetype === 'goliath'
+        ? Math.atan2(b.aimLockY - b.y, b.aimLockX - b.x)
+        : Math.atan2(b.dashDirY, b.dashDirX);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+      ctx.lineWidth = b.archetype === 'goliath' ? 4 : 2.5;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.moveTo(b.x, b.y);
+      ctx.lineTo(b.x + Math.cos(aimAng) * 900, b.y + Math.sin(aimAng) * 900);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
     ctx.translate(b.x, b.y);
 
-    // 1. Aura de pulso de escudo gigante
+    // 1. Aura de pulso de escudo
     const pulseR = b.radius * (1.18 + Math.sin(survivalTimer * 6) * 0.08);
-    ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.45;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.globalAlpha = 1;
 
-    // Anel secundário ciano rotativo
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+    // Anel secundário rotativo
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([10, 8]);
     ctx.beginPath();
@@ -2461,19 +2896,33 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 2. Casco Hexagonal Dreadnought
-    ctx.shadowColor = '#ef4444';
+    // 2. Casco geométrico único por arquétipo
+    ctx.shadowColor = col;
     ctx.shadowBlur = 18;
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = b.isMiniBoss ? 2.5 : 3.5;
     ctx.fillStyle = '#09090b';
 
-    const segs = 6;
+    const sidesByArchetype = {
+      stalker: 4,
+      artillery: 8,
+      warden: 4,
+      goliath: 6,
+      viper: 3,
+      overmind: 12,
+      architect: 3
+    };
+    const segs = sidesByArchetype[b.archetype] || 6;
+    const rotOffset = (b.archetype === 'warden' || b.archetype === 'overmind' || b.archetype === 'artillery')
+      ? b.phaseTimer * 1.1
+      : (b.archetype === 'viper' ? Math.atan2(player.y - b.y, player.x - b.x) : Math.PI / 6);
+
     ctx.beginPath();
     for (let s = 0; s <= segs; s++) {
-      const a = (s * Math.PI * 2) / segs + Math.PI / 6;
-      const px = Math.cos(a) * b.radius;
-      const py = Math.sin(a) * b.radius;
+      const a = (s * Math.PI * 2) / segs + rotOffset;
+      const rMod = (b.archetype === 'stalker' && s % 2 === 0) ? b.radius * 1.2 : b.radius;
+      const px = Math.cos(a) * rMod;
+      const py = Math.sin(a) * rMod;
       if (s === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
@@ -2481,70 +2930,80 @@
     ctx.fill();
     ctx.stroke();
 
-    // 3. Torretas Laterais de Plasma
-    ctx.fillStyle = '#18181b';
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
-    ctx.fillRect(-b.radius - 8, -12, 12, 24);
-    ctx.strokeRect(-b.radius - 8, -12, 12, 24);
-    ctx.fillRect(b.radius - 4, -12, 12, 24);
-    ctx.strokeRect(b.radius - 4, -12, 12, 24);
+    // 3. Acessórios por arquétipo (Torretas ou Satélites orbitais)
+    if (b.archetype === 'goliath') {
+      ctx.fillStyle = '#18181b';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.fillRect(-b.radius - 8, -12, 12, 24);
+      ctx.strokeRect(-b.radius - 8, -12, 12, 24);
+      ctx.fillRect(b.radius - 4, -12, 12, 24);
+      ctx.strokeRect(b.radius - 4, -12, 12, 24);
+    } else if (b.archetype === 'architect' || b.archetype === 'artillery') {
+      const satCount = b.archetype === 'architect' ? 4 : 3;
+      for (let k = 0; k < satCount; k++) {
+        const satAng = b.phaseTimer * 2.2 + (k * Math.PI * 2) / satCount;
+        const sx = Math.cos(satAng) * (b.radius + 24);
+        const sy = Math.sin(satAng) * (b.radius + 24);
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
-    // 4. Núcleo de Reator Cibernético
-    ctx.shadowColor = '#00f0ff';
+    // 4. Núcleo do Reator
+    ctx.shadowColor = col;
     ctx.shadowBlur = 14;
-    ctx.fillStyle = '#00f0ff';
+    ctx.fillStyle = col;
     ctx.beginPath();
-    ctx.arc(0, 0, 14 + Math.sin(survivalTimer * 10) * 3, 0, Math.PI * 2);
+    ctx.arc(0, 0, (b.isMiniBoss ? 9 : 14) + Math.sin(survivalTimer * 10) * 2.5, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.arc(0, 0, b.isMiniBoss ? 4 : 6, 0, Math.PI * 2);
     ctx.fill();
 
     // 5. Rótulo de Alerta Tático
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = col;
     ctx.font = '700 10px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('⚠ SECTOR TITAN CORE', 0, -b.radius - 14);
+    ctx.fillText(b.isMiniBoss ? `⚡ MINI-BOSS // ${b.subtitle}` : `⚠ ${b.subtitle}`, 0, -b.radius - 14);
 
     ctx.restore();
   }
 
   function drawBossHealthBar() {
     if (!currentBoss || currentBoss.hp <= 0) return;
-    const barW = 540;
+    const barW = currentBoss.isMiniBoss ? 420 : 540;
     const barH = 16;
     const bx = (V_WIDTH - barW) * 0.5;
     const by = 58;
     const pct = Math.max(0, currentBoss.hp / currentBoss.maxHp);
+    const col = currentBoss.color || '#ef4444';
 
     ctx.save();
-    // Glass background
     ctx.fillStyle = 'rgba(9, 9, 11, 0.92)';
     ctx.fillRect(bx - 6, by - 18, barW + 12, barH + 24);
-    ctx.strokeStyle = '#ef4444';
+    ctx.strokeStyle = col;
     ctx.lineWidth = 1;
     ctx.strokeRect(bx - 6, by - 18, barW + 12, barH + 24);
 
-    // Title
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = col;
     ctx.font = '700 11px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`⚠ ${currentBoss.name}`, bx, by - 5);
+    ctx.fillText(`${currentBoss.isMiniBoss ? '⚡ MINI-BOSS:' : '⚠'} ${currentBoss.name}`, bx, by - 5);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#fafafa';
     ctx.fillText(`${Math.ceil(currentBoss.hp)} / ${currentBoss.maxHp} HP (${Math.ceil(pct * 100)}%)`, bx + barW, by - 5);
 
-    // HP Bar background
     ctx.fillStyle = '#18181b';
     ctx.fillRect(bx, by, barW, barH);
 
-    // HP Bar fill
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = col;
     ctx.fillRect(bx, by, barW * pct, barH);
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
@@ -3195,19 +3654,28 @@
   }
 
   function drawEliteWarning() {
-    if (eliteWarningTimer <= 0) return;
-    const isFlash = Math.floor(eliteWarningTimer * 6) % 2 === 0;
-    ctx.save();
-    ctx.fillStyle = isFlash ? 'rgba(255, 255, 255, 0.92)' : 'rgba(9, 9, 11, 0.92)';
-    ctx.fillRect(V_WIDTH * 0.5 - 220, 58, 440, 28);
-    ctx.strokeStyle = '#fafafa';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(V_WIDTH * 0.5 - 220, 58, 440, 28);
+    if (hordeBannerTimer <= 0 && eliteWarningTimer <= 0) return;
+    const showBossBanner = currentBoss && eliteWarningTimer > 0;
+    const text = showBossBanner
+      ? (hordeBannerText || `⚠ ALERTA: ${currentBoss.name}`)
+      : hordeBannerText;
+    if (!text) return;
 
-    ctx.fillStyle = isFlash ? '#000000' : '#ffffff';
+    const accent = showBossBanner ? (currentBoss.color || '#ef4444') : (hordeBannerColor || '#00f0ff');
+    const bannerY = currentBoss ? 104 : 58;
+    const boxW = Math.min(V_WIDTH - 80, Math.max(440, text.length * 8 + 44));
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.90)';
+    ctx.fillRect(V_WIDTH * 0.5 - boxW * 0.5, bannerY, boxW, 28);
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(V_WIDTH * 0.5 - boxW * 0.5, bannerY, boxW, 28);
+
+    ctx.fillStyle = accent;
     ctx.font = '700 11px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('⚠️ WARNING: HIGH THREAT ANOMALY DETECTED', V_WIDTH * 0.5, 76);
+    ctx.fillText(text, V_WIDTH * 0.5, bannerY + 18);
     ctx.restore();
   }
 
@@ -3301,7 +3769,7 @@
     const xpW = 150;
     ctx.fillStyle = '#18181b';
     ctx.fillRect(xpX, hpY, xpW, hpH);
-    ctx.fillStyle = isBossEncounter ? '#ef4444' : '#00f0ff';
+    ctx.fillStyle = isBossEncounter ? (currentBoss && currentBoss.isMiniBoss ? '#f59e0b' : '#ef4444') : '#00f0ff';
     ctx.fillRect(xpX, hpY, xpW * hordePct, hpH);
     ctx.strokeStyle = '#3f3f46';
     ctx.lineWidth = 1;
@@ -3309,7 +3777,10 @@
 
     ctx.fillStyle = '#e4e4e7';
     ctx.font = '700 10px "JetBrains Mono", monospace';
-    ctx.fillText(isBossEncounter ? `TITAN BOSS // LVL ${level}` : `HORDA ${hordeKilled}/${hordeTotal}`, xpX + 6, hpY + 13);
+    const hordeLabel = isBossEncounter
+      ? (currentBoss && currentBoss.isMiniBoss ? `MINI-BOSS // L${level}` : `TITAN BOSS // L${level}`)
+      : `HORDA ${hordeKilled}/${hordeTotal}`;
+    ctx.fillText(hordeLabel, xpX + 6, hpY + 13);
 
     // Divisor técnico 2
     ctx.beginPath();
