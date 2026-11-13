@@ -780,18 +780,42 @@
   ];
 
   const MINI_BOSS_POOL = [
-    { id: 'stalker', name: 'VORTEX STALKER', subtitle: 'ASSASSINO DE DASH', color: '#f59e0b', radius: 34, speed: 120 },
-    { id: 'artillery', name: 'PHANTOM ARTILLERY', subtitle: 'BOMBARDEIO & MINAS', color: '#ec4899', radius: 36, speed: 75 },
-    { id: 'warden', name: 'AEGIS WARDEN', subtitle: 'ESPIRAL BLINDADA', color: '#00f0ff', radius: 38, speed: 78 }
+    { id: 'stalker', name: 'VORTEX STALKER', subtitle: 'DASH ASSASSINO', color: '#f59e0b', radius: 34, speed: 122, sides: 4, shape: 'star', rings: 1, sats: 0 },
+    { id: 'artillery', name: 'PHANTOM ARTILLERY', subtitle: 'ATAQUE ORBITAL', color: '#ec4899', radius: 36, speed: 75, sides: 8, shape: 'poly', rings: 2, sats: 3 },
+    { id: 'warden', name: 'AEGIS WARDEN', subtitle: 'ANÉIS DE CHOQUE', color: '#00f0ff', radius: 38, speed: 78, sides: 4, shape: 'shield', rings: 2, sats: 0 },
+    { id: 'singularity', name: 'VOID SINGULARITY', subtitle: 'POÇOS GRAVITACIONAIS', color: '#a855f7', radius: 35, speed: 68, sides: 6, shape: 'vortex', rings: 3, sats: 2 },
+    { id: 'scythe', name: 'PRISM SCYTHE', subtitle: 'FEIXES ROTATIVOS', color: '#10b981', radius: 34, speed: 88, sides: 3, shape: 'saw', rings: 1, sats: 2 },
+    { id: 'mirage', name: 'MIRAGE PHANTOM', subtitle: 'CLONES & TELEPORTE', color: '#38bdf8', radius: 32, speed: 105, sides: 3, shape: 'wing', rings: 2, sats: 0 },
+    { id: 'tesla', name: 'TESLA COIL', subtitle: 'CERCAS DE PLASMA', color: '#fde047', radius: 36, speed: 72, sides: 6, shape: 'saw', rings: 2, sats: 3 },
+    { id: 'rammer', name: 'SIEGE RAMMER', subtitle: 'FIREWALL & INVESTIDA', color: '#fb7185', radius: 40, speed: 112, sides: 5, shape: 'poly', rings: 1, sats: 0 }
   ];
 
   const BOSS_POOL = [
-    { id: 'goliath', name: 'CYBER GOLIATH // DREADNOUGHT', subtitle: 'ARTILHARIA & RAILGUN', color: '#ef4444', radius: 54, speed: 60 },
-    { id: 'viper', name: 'NEON VIPER // APEX PHANTOM', subtitle: 'DASH DUPLO & MINAS', color: '#00f0ff', radius: 46, speed: 115 },
-    { id: 'overmind', name: 'OMEGA OVERMIND // MATRIX CORE', subtitle: 'BULLET-HELL & TELEGUIDADOS', color: '#ec4899', radius: 56, speed: 52 },
-    { id: 'architect', name: 'CHRONO ARCHITECT // SINGULARITY', subtitle: 'BOMBAS DE FRAGMENTAÇÃO', color: '#f59e0b', radius: 50, speed: 70 }
+    { id: 'goliath', name: 'CYBER GOLIATH // DREADNOUGHT', subtitle: 'RAILGUN & ARTILHARIA', color: '#ef4444', radius: 54, speed: 62, sides: 6, shape: 'poly', rings: 2, sats: 0, turrets: true },
+    { id: 'viper', name: 'NEON VIPER // APEX PHANTOM', subtitle: 'DASH TRIPLO & STRIKES', color: '#00f0ff', radius: 46, speed: 118, sides: 3, shape: 'wing', rings: 2, sats: 2 },
+    { id: 'overmind', name: 'OMEGA OVERMIND // MATRIX CORE', subtitle: 'BULLET-HELL & CHOQUES', color: '#ec4899', radius: 56, speed: 54, sides: 12, shape: 'vortex', rings: 3, sats: 4 },
+    { id: 'architect', name: 'CHRONO ARCHITECT // SINGULARITY', subtitle: 'GRAVIDADE & BOMBAS', color: '#f59e0b', radius: 50, speed: 72, sides: 3, shape: 'star', rings: 2, sats: 4 },
+    { id: 'helios', name: 'SOLAR HELIOS // LASER TITAN', subtitle: 'CRUZ DE LASERS 360°', color: '#fde047', radius: 54, speed: 58, sides: 8, shape: 'star', rings: 3, sats: 4 },
+    { id: 'leviathan', name: 'FIREWALL LEVIATHAN // GRID BREAKER', subtitle: 'PAREDES FIREWALL', color: '#22d3ee', radius: 58, speed: 68, sides: 8, shape: 'saw', rings: 2, sats: 2, turrets: true },
+    { id: 'hydra', name: 'SPECTER HYDRA // SWARM MATRIX', subtitle: 'CLONES & TELEPORTE', color: '#c084fc', radius: 50, speed: 94, sides: 5, shape: 'wing', rings: 2, sats: 3 },
+    { id: 'tempest', name: 'PULSE EMPEROR // TEMPEST', subtitle: 'REDE TESLA & PULSOS', color: '#34d399', radius: 52, speed: 76, sides: 6, shape: 'shield', rings: 3, sats: 5 }
   ];
 
+  const BOSS_MUTATORS = [
+    { id: 'grav', label: '+GRAVIDADE', color: '#a855f7', interval: 6.5 },
+    { id: 'strike', label: '+ATAQUE ORBITAL', color: '#ec4899', interval: 5.2 },
+    { id: 'ring', label: '+PULSO EMP', color: '#00f0ff', interval: 5.8 },
+    { id: 'wall', label: '+FIREWALL', color: '#22d3ee', interval: 7.4 },
+    { id: 'clone', label: '+HOLO-CLONE', color: '#c084fc', interval: 7.8 },
+    { id: 'pylon', label: '+CERCA TESLA', color: '#fde047', interval: 7.0 }
+  ];
+
+  const PROC_PREFIXES = ['HYPER', 'QUANTUM', 'VOID', 'CRYO', 'APEX', 'NEXUS', 'CRIMSON', 'ZERO', 'ASTRAL', 'CHROME'];
+  const PROC_CORES = ['KRAKEN', 'SERAPH', 'VALKYRIE', 'COLOSSUS', 'REAPER', 'SPECTER', 'NEMESIS', 'CHIMERA'];
+  const PROC_COLORS = ['#00f0ff', '#ef4444', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#fde047', '#38bdf8'];
+  const PROC_SHAPES = ['star', 'saw', 'wing', 'vortex', 'shield', 'poly'];
+
+  let bossHazards = [];
   let hordeTotal = 6;
   let hordeRemainingToSpawn = 6;
   let currentHordeMod = HORDE_MODIFIERS[0];
@@ -967,6 +991,70 @@
         steerX += (dx / dist) * w;
         steerY += (dy / dist) * w;
         if (dist < currentBoss.radius + 55) emergencyDanger = true;
+      }
+    }
+
+    // 3.5. Esquiva de Perigos Dinâmicos da Arena (Lasers, Zonas Orbitais, Poços Gravitacionais, Firewalls, Choques)
+    for (let i = 0; i < bossHazards.length; i++) {
+      const h = bossHazards[i];
+      if (h.kind === 'strike_zone' || h.kind === 'gravity_well') {
+        const dx = player.x - h.x;
+        const dy = player.y - h.y;
+        const d = Math.hypot(dx, dy);
+        const safeR = (h.kind === 'gravity_well' ? h.pullRadius * 0.75 : h.radius + 45);
+        if (d < safeR && d > 1) {
+          const urgency = ((safeR - d) / safeR) * 4.0;
+          steerX += (dx / d) * urgency;
+          steerY += (dy / d) * urgency;
+          if (h.kind === 'strike_zone' && h.warnTime < 0.35 && d < h.radius + 14) emergencyDanger = true;
+          if (h.kind === 'gravity_well' && d < h.radius + 32) emergencyDanger = true;
+        }
+      } else if (h.kind === 'beam') {
+        const bx = h.x;
+        const by = h.y;
+        const ux = Math.cos(h.angle);
+        const uy = Math.sin(h.angle);
+        const rx = player.x - bx;
+        const ry = player.y - by;
+        const proj = Math.max(0, Math.min(h.length, rx * ux + ry * uy));
+        const px = bx + ux * proj;
+        const py = by + uy * proj;
+        const d = Math.hypot(player.x - px, player.y - py);
+        if (d < 130 && d > 1) {
+          const urgency = ((130 - d) / 130) * 4.2;
+          steerX += ((player.x - px) / d) * urgency;
+          steerY += ((player.y - py) / d) * urgency;
+          if (h.warnTime <= 0 && d < h.width + 20) emergencyDanger = true;
+        }
+      } else if (h.kind === 'wall_sweep') {
+        const playerCoord = h.axis === 'x' ? player.x : player.y;
+        const playerSpan = h.axis === 'x' ? player.y : player.x;
+        const distWall = Math.abs(playerCoord - h.pos);
+        const inGap = Math.abs(playerSpan - h.gapPos) < h.gapSize * 0.42;
+        if (distWall < 150 && !inGap) {
+          // Move em direção à abertura segura do Firewall
+          const toGap = h.gapPos - playerSpan;
+          if (Math.abs(toGap) > 5) {
+            if (h.axis === 'x') steerY += Math.sign(toGap) * 4.2;
+            else steerX += Math.sign(toGap) * 4.2;
+          }
+          if (h.warnTime <= 0 && distWall < 48) emergencyDanger = true;
+        }
+      } else if (h.kind === 'shock_ring') {
+        const d = Math.hypot(player.x - h.x, player.y - h.y);
+        if (Math.abs(d - h.radius) < 55 && d > 1) {
+          if (Math.abs(d - h.radius) < 30) emergencyDanger = true;
+          steerX += ((player.x - h.x) / d) * 2.5;
+          steerY += ((player.y - h.y) / d) * 2.5;
+        }
+      } else if (h.kind === 'holo_clone') {
+        const dx = player.x - h.x;
+        const dy = player.y - h.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 170 && d > 1) {
+          steerX += (dx / d) * 2.2;
+          steerY += (dy / d) * 2.2;
+        }
       }
     }
 
@@ -1154,6 +1242,7 @@
     aimAssistPenalty = 1.45;
     isBossEncounter = false;
     currentBoss = null;
+    bossHazards.length = 0;
     isMegaUpgradeModal = false;
     bossDefeatedCount = 0;
     lastMiniBossId = null;
@@ -1359,10 +1448,11 @@
       // Movement Input (WASD or Touch/Mouse Drag)
       handlePlayerMovement(dt);
 
-      // Boss Logic (Atualiza movimento e padrões de tiro se o Chefe estiver ativo)
+      // Boss Logic & Dynamic Arena Hazards (Atualiza movimento, padrões e perigos de arena)
       if (currentBoss) {
         updateBoss(dt);
       }
+      updateBossHazards(dt);
 
       // Weapons Combat (Manual ou Aim Assist 360°)
       handleCombat(dt);
@@ -1625,33 +1715,72 @@
     return closest || currentBoss;
   }
 
+  function buildProceduralBossSpec(bossLevel, isMiniBoss) {
+    const pool = isMiniBoss ? MINI_BOSS_POOL : BOSS_POOL;
+    const baseSpec = pool[Math.floor(Math.random() * pool.length)];
+    const prefix = PROC_PREFIXES[Math.floor(Math.random() * PROC_PREFIXES.length)];
+    const core = PROC_CORES[Math.floor(Math.random() * PROC_CORES.length)];
+    const color = PROC_COLORS[Math.floor(Math.random() * PROC_COLORS.length)];
+    const shape = PROC_SHAPES[Math.floor(Math.random() * PROC_SHAPES.length)];
+    const sides = [3, 4, 5, 6, 8, 10][Math.floor(Math.random() * 6)];
+    const rings = 1 + Math.floor(Math.random() * 3);
+    const sats = Math.floor(Math.random() * 5);
+
+    return {
+      id: baseSpec.id,
+      name: `${prefix} ${core} [SYNTH-${bossLevel}]`,
+      subtitle: `${baseSpec.subtitle} // PROCEDURAL`,
+      color: color,
+      radius: isMiniBoss ? (32 + Math.floor(Math.random() * 9)) : (48 + Math.floor(Math.random() * 14)),
+      speed: baseSpec.speed * (0.95 + Math.random() * 0.2),
+      sides: sides,
+      shape: shape,
+      rings: rings,
+      sats: sats,
+      turrets: Math.random() < 0.5,
+      isProcedural: true
+    };
+  }
+
   function spawnBossFromPool(bossLevel, isMiniBoss) {
     isBossEncounter = true;
+    bossHazards.length = 0;
     const b = getArenaBounds();
     const pool = isMiniBoss ? MINI_BOSS_POOL : BOSS_POOL;
-    const spec = pickFromRoulette(pool, isMiniBoss ? lastMiniBossId : lastBossId);
-    if (isMiniBoss) {
-      lastMiniBossId = spec.id;
+
+    // A partir do nível 10+, 30% de chance na roleta de sintetizar um Boss/Mini-Boss 100% Procedural!
+    const rollProcedural = bossLevel >= 10 && Math.random() < 0.30;
+    let spec;
+    if (rollProcedural) {
+      spec = buildProceduralBossSpec(bossLevel, isMiniBoss);
     } else {
-      lastBossId = spec.id;
+      spec = pickFromRoulette(pool, isMiniBoss ? lastMiniBossId : lastBossId);
+      if (isMiniBoss) lastMiniBossId = spec.id;
+      else lastBossId = spec.id;
     }
 
-    const baseHp = isMiniBoss
-      ? 420 + (bossLevel * 65)
-      : 1150 + (bossLevel * 120);
+    // Todo Boss (e Mini-Bosses a partir do nível 10+) ganha um Mutador Dinâmico de Arena na roleta!
+    const mutator = (!isMiniBoss || bossLevel >= 10 || rollProcedural)
+      ? BOSS_MUTATORS[Math.floor(Math.random() * BOSS_MUTATORS.length)]
+      : null;
 
-    // Posição de entrada aleatória nas bordas superiores/laterais
+    const baseHp = isMiniBoss
+      ? 450 + (bossLevel * 70)
+      : 1200 + (bossLevel * 130);
+
     const entrySide = Math.floor(Math.random() * 3);
     let sx = V_WIDTH * 0.5;
     let sy = b.minY - 110;
     if (entrySide === 1) { sx = b.minX - 90; sy = V_HEIGHT * 0.35; }
     if (entrySide === 2) { sx = b.maxX + 90; sy = V_HEIGHT * 0.35; }
 
+    const mutSuffix = mutator ? ` ${mutator.label}` : '';
     currentBoss = {
       name: `${spec.name} // LVL ${bossLevel}`,
-      subtitle: spec.subtitle,
+      subtitle: `${spec.subtitle}${mutSuffix}`,
       archetype: spec.id,
       isMiniBoss: isMiniBoss,
+      isProcedural: !!spec.isProcedural,
       level: bossLevel,
       x: sx,
       y: sy,
@@ -1660,12 +1789,19 @@
       radius: spec.radius,
       speed: spec.speed,
       color: spec.color,
-      shootTimer: 1.5,
+      sides: spec.sides || 6,
+      shape: spec.shape || 'poly',
+      rings: spec.rings || 2,
+      sats: spec.sats || 0,
+      turrets: !!spec.turrets,
+      mutator: mutator,
+      mutatorTimer: mutator ? mutator.interval * 0.65 : 999,
+      shootTimer: 1.4,
+      hazardTimer: 2.2,
       phaseTimer: 0,
       patternIndex: 0,
       spiralAngle: 0,
       burstShotsLeft: 0,
-      burstTick: 0,
       telegraphTimer: 0,
       dashTimer: 0,
       dashCombo: 0,
@@ -1674,15 +1810,17 @@
       dashCooldown: 2.8,
       aimLockX: player.x,
       aimLockY: player.y,
+      ramVx: spec.speed * 2.2,
+      ramVy: spec.speed * 1.6,
       isBoss: true
     };
 
     screenShake = isMiniBoss ? 12 : 18;
     playSynthSound(isMiniBoss ? 'elite' : 'boss_spawn');
     eliteWarningTimer = 3.5;
-    hordeBannerText = `${isMiniBoss ? '⚠ MINI-CHEFE' : '☠ CHEFE TITÃ'}: ${spec.name} [${spec.subtitle}]`;
+    hordeBannerText = `${isMiniBoss ? '⚠ MINI-CHEFE' : '☠ CHEFE TITÃ'}: ${spec.name} [${currentBoss.subtitle}]`;
     hordeBannerColor = spec.color;
-    hordeBannerTimer = 3.5;
+    hordeBannerTimer = 3.8;
   }
 
   function spawnMiniBoss(bossLevel) {
@@ -1691,6 +1829,299 @@
 
   function spawnBoss(bossLevel) {
     spawnBossFromPool(bossLevel, false);
+  }
+
+  function damagePlayerFromHazard(dmg, label, color) {
+    if (player.invulnerableTimer > 0 || state !== GameState.PLAYING) return;
+    player.health -= dmg;
+    player.invulnerableTimer = 0.65;
+    screenShake = Math.max(screenShake, 12);
+    createSparks(player.x, player.y, color || '#ffffff', 12);
+    addFloatingText(player.x, player.y - 25, `-${dmg} HP [${label}]`, color || '#ef4444');
+    playSynthSound('hit');
+    if (player.health <= 0) {
+      triggerGameOver();
+    }
+  }
+
+  function spawnHazardBeam(x, y, angle, length, width, rotSpeed, warnTime, activeTime, color, attachToBoss) {
+    bossHazards.push({
+      kind: 'beam',
+      x: x,
+      y: y,
+      angle: angle,
+      length: length,
+      width: width,
+      rotSpeed: rotSpeed,
+      warnTime: warnTime,
+      maxWarn: warnTime,
+      activeTime: activeTime,
+      attachToBoss: !!attachToBoss,
+      color: color || '#ef4444',
+      damage: 20
+    });
+  }
+
+  function spawnHazardShockRing(x, y, maxRadius, speed, thickness, color, damage) {
+    bossHazards.push({
+      kind: 'shock_ring',
+      x: x,
+      y: y,
+      radius: 24,
+      maxRadius: maxRadius || 420,
+      speed: speed || 270,
+      thickness: thickness || 14,
+      color: color || '#00f0ff',
+      damage: damage || 18
+    });
+  }
+
+  function spawnHazardGravityWell(x, y, pullRadius, pullForce, life, color) {
+    bossHazards.push({
+      kind: 'gravity_well',
+      x: x,
+      y: y,
+      radius: 26,
+      pullRadius: pullRadius || 280,
+      pullForce: pullForce || 235,
+      warnTime: 0.55,
+      life: life || 5.5,
+      maxLife: life || 5.5,
+      color: color || '#a855f7',
+      damage: 18
+    });
+  }
+
+  function spawnHazardStrikeZone(x, y, radius, warnTime, color, damage) {
+    bossHazards.push({
+      kind: 'strike_zone',
+      x: x,
+      y: y,
+      radius: radius || 78,
+      warnTime: warnTime || 1.15,
+      maxWarn: warnTime || 1.15,
+      color: color || '#ec4899',
+      damage: damage || 22
+    });
+  }
+
+  function spawnHazardFirewall(axis, bounds, speed, gapSize, color) {
+    const fromMin = Math.random() < 0.5;
+    const pos = axis === 'x'
+      ? (fromMin ? bounds.minX : bounds.maxX)
+      : (fromMin ? bounds.minY : bounds.maxY);
+    const dir = fromMin ? 1 : -1;
+    const minSpan = axis === 'x' ? bounds.minY : bounds.minX;
+    const maxSpan = axis === 'x' ? bounds.maxY : bounds.maxX;
+    const margin = 90;
+    const gapPos = minSpan + margin + Math.random() * Math.max(40, (maxSpan - minSpan) - margin * 2);
+
+    bossHazards.push({
+      kind: 'wall_sweep',
+      axis: axis,
+      pos: pos,
+      dir: dir,
+      speed: speed || 320,
+      gapPos: gapPos,
+      gapSize: gapSize || 150,
+      minSpan: minSpan,
+      maxSpan: maxSpan,
+      minTravel: axis === 'x' ? bounds.minX - 20 : bounds.minY - 20,
+      maxTravel: axis === 'x' ? bounds.maxX + 20 : bounds.maxY + 20,
+      warnTime: 0.75,
+      color: color || '#22d3ee',
+      damage: 22
+    });
+  }
+
+  function spawnHazardPylonPair(x1, y1, x2, y2, life, color) {
+    const pairId = `${Date.now()}_${Math.random()}`;
+    bossHazards.push({ kind: 'pylon', x: x1, y: y1, radius: 16, life: life, maxLife: life, pairId: pairId, color: color || '#fde047', damage: 16 });
+    bossHazards.push({ kind: 'pylon', x: x2, y: y2, radius: 16, life: life, maxLife: life, pairId: pairId, color: color || '#fde047', damage: 16 });
+  }
+
+  function spawnHazardHoloClone(x, y, hp, life, color, archetype) {
+    bossHazards.push({
+      kind: 'holo_clone',
+      x: x,
+      y: y,
+      radius: 26,
+      hp: hp || 90,
+      maxHp: hp || 90,
+      life: life || 7.5,
+      maxLife: life || 7.5,
+      shootTimer: 0.9,
+      speed: 135,
+      color: color || '#c084fc',
+      archetype: archetype || 'mirage'
+    });
+  }
+
+  function pointToSegmentDist(px, py, x1, y1, x2, y2) {
+    const vx = x2 - x1;
+    const vy = y2 - y1;
+    const lenSq = vx * vx + vy * vy;
+    if (lenSq <= 0.0001) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * vx + (py - y1) * vy) / lenSq));
+    return Math.hypot(px - (x1 + t * vx), py - (y1 + t * vy));
+  }
+
+  function updateBossHazards(dt) {
+    const bounds = getArenaBounds();
+    for (let i = bossHazards.length - 1; i >= 0; i--) {
+      const h = bossHazards[i];
+
+      if (h.kind === 'beam') {
+        if (h.attachToBoss) {
+          if (!currentBoss || currentBoss.hp <= 0) {
+            bossHazards.splice(i, 1);
+            continue;
+          }
+          h.x = currentBoss.x;
+          h.y = currentBoss.y;
+        }
+        if (h.warnTime > 0) {
+          h.warnTime -= dt;
+          if (h.warnTime <= 0) {
+            playSynthSound('laser_heavy');
+          }
+        } else {
+          h.angle += h.rotSpeed * dt;
+          h.activeTime -= dt;
+          const ex = h.x + Math.cos(h.angle) * h.length;
+          const ey = h.y + Math.sin(h.angle) * h.length;
+          if (pointToSegmentDist(player.x, player.y, h.x, h.y, ex, ey) <= h.width * 0.5 + 14) {
+            damagePlayerFromHazard(h.damage, 'LASER BEAM', h.color);
+          }
+          if (h.activeTime <= 0) bossHazards.splice(i, 1);
+        }
+      } else if (h.kind === 'shock_ring') {
+        h.radius += h.speed * dt;
+        const d = Math.hypot(player.x - h.x, player.y - h.y);
+        if (Math.abs(d - h.radius) <= h.thickness + 12) {
+          damagePlayerFromHazard(h.damage, 'SHOCKWAVE', h.color);
+        }
+        if (h.radius >= h.maxRadius) bossHazards.splice(i, 1);
+      } else if (h.kind === 'gravity_well') {
+        h.life -= dt;
+        if (h.warnTime > 0) {
+          h.warnTime -= dt;
+        } else {
+          const dx = h.x - player.x;
+          const dy = h.y - player.y;
+          const d = Math.hypot(dx, dy);
+          if (d < h.pullRadius && d > 4 && dashActiveTimer <= 0) {
+            const pullFactor = (1 - d / h.pullRadius) * h.pullForce;
+            player.x += (dx / d) * pullFactor * dt;
+            player.y += (dy / d) * pullFactor * dt;
+            player.x = Math.max(bounds.minX, Math.min(bounds.maxX, player.x));
+            player.y = Math.max(bounds.minY, Math.min(bounds.maxY, player.y));
+          }
+          if (d < h.radius + 14) {
+            damagePlayerFromHazard(h.damage, 'SINGULARITY', h.color);
+          }
+        }
+        if (h.life <= 0) bossHazards.splice(i, 1);
+      } else if (h.kind === 'strike_zone') {
+        h.warnTime -= dt;
+        if (h.warnTime <= 0) {
+          createExplosion(h.x, h.y, h.color, 28);
+          screenShake = Math.max(screenShake, 8);
+          playSynthSound('explode');
+          if (Math.hypot(player.x - h.x, player.y - h.y) <= h.radius + 12) {
+            damagePlayerFromHazard(h.damage, 'ORBITAL STRIKE', h.color);
+          }
+          bossHazards.splice(i, 1);
+        }
+      } else if (h.kind === 'wall_sweep') {
+        if (h.warnTime > 0) {
+          h.warnTime -= dt;
+        } else {
+          h.pos += h.dir * h.speed * dt;
+          const playerCoord = h.axis === 'x' ? player.x : player.y;
+          const playerSpan = h.axis === 'x' ? player.y : player.x;
+          const inGap = Math.abs(playerSpan - h.gapPos) <= h.gapSize * 0.5;
+          if (!inGap && Math.abs(playerCoord - h.pos) <= 18) {
+            damagePlayerFromHazard(h.damage, 'FIREWALL', h.color);
+          }
+          if ((h.dir > 0 && h.pos > h.maxTravel) || (h.dir < 0 && h.pos < h.minTravel)) {
+            bossHazards.splice(i, 1);
+          }
+        }
+      } else if (h.kind === 'pylon') {
+        h.life -= dt;
+        if (Math.hypot(player.x - h.x, player.y - h.y) <= h.radius + 14) {
+          damagePlayerFromHazard(h.damage, 'TESLA PYLON', h.color);
+        }
+        // Verifica cerca elétrica entre pares de pylons com mesmo pairId
+        for (let j = i - 1; j >= 0; j--) {
+          const other = bossHazards[j];
+          if (other.kind === 'pylon' && other.pairId === h.pairId) {
+            if (pointToSegmentDist(player.x, player.y, h.x, h.y, other.x, other.y) <= 14) {
+              damagePlayerFromHazard(h.damage, 'PLASMA FENCE', h.color);
+            }
+          }
+        }
+        if (h.life <= 0) bossHazards.splice(i, 1);
+      } else if (h.kind === 'holo_clone') {
+        h.life -= dt;
+        const ang = Math.atan2(player.y - h.y, player.x - h.x);
+        const strafe = ang + Math.PI * 0.35;
+        h.x += (Math.cos(ang) * 0.65 + Math.cos(strafe) * 0.55) * h.speed * dt;
+        h.y += (Math.sin(ang) * 0.65 + Math.sin(strafe) * 0.55) * h.speed * dt;
+        h.shootTimer -= dt;
+        if (h.shootTimer <= 0) {
+          h.shootTimer = 1.45;
+          fireBossBullet(h.x, h.y, ang, 275, 5.5, 12, h.color);
+        }
+        if (Math.hypot(player.x - h.x, player.y - h.y) <= h.radius + 14) {
+          damagePlayerFromHazard(14, 'HOLO-CLONE', h.color);
+        }
+        if (h.life <= 0 || h.hp <= 0) {
+          createSparks(h.x, h.y, h.color, 12);
+          bossHazards.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  function triggerBossMutator(b, bounds) {
+    if (!b.mutator) return;
+    const m = b.mutator.id;
+    if (m === 'grav') {
+      const gx = player.x + (Math.random() - 0.5) * 260;
+      const gy = player.y + (Math.random() - 0.5) * 260;
+      spawnHazardGravityWell(
+        Math.max(bounds.minX + 80, Math.min(bounds.maxX - 80, gx)),
+        Math.max(bounds.minY + 80, Math.min(bounds.maxY - 80, gy)),
+        250, 210, 5.0, b.mutator.color
+      );
+    } else if (m === 'strike') {
+      for (let s = 0; s < 2; s++) {
+        spawnHazardStrikeZone(
+          player.x + (Math.random() - 0.5) * 180,
+          player.y + (Math.random() - 0.5) * 180,
+          72, 1.15, b.mutator.color, 18
+        );
+      }
+    } else if (m === 'ring') {
+      spawnHazardShockRing(b.x, b.y, 440, 260, 14, b.mutator.color, 16);
+    } else if (m === 'wall') {
+      spawnHazardFirewall(Math.random() < 0.5 ? 'x' : 'y', bounds, 310, 165, b.mutator.color);
+    } else if (m === 'clone') {
+      const ang = Math.random() * Math.PI * 2;
+      spawnHazardHoloClone(b.x + Math.cos(ang) * 90, b.y + Math.sin(ang) * 90, 75 + b.level * 5, 6.5, b.mutator.color, b.archetype);
+    } else if (m === 'pylon') {
+      const ang = Math.random() * Math.PI;
+      const dist = 160;
+      spawnHazardPylonPair(
+        Math.max(bounds.minX + 50, Math.min(bounds.maxX - 50, player.x + Math.cos(ang) * dist)),
+        Math.max(bounds.minY + 50, Math.min(bounds.maxY - 50, player.y + Math.sin(ang) * dist)),
+        Math.max(bounds.minX + 50, Math.min(bounds.maxX - 50, player.x - Math.cos(ang) * dist)),
+        Math.max(bounds.minY + 50, Math.min(bounds.maxY - 50, player.y - Math.sin(ang) * dist)),
+        5.5, b.mutator.color
+      );
+    }
   }
 
   function fireBossBullet(x, y, ang, speed, radius, damage, color, extras = {}) {
@@ -1722,27 +2153,38 @@
 
     b.phaseTimer += dt;
 
-    // 1. Execução de Dash ativo (Vortex Stalker / Neon Viper)
+    // Mutador Secundário Procedural
+    if (b.mutator) {
+      b.mutatorTimer -= dt * pace;
+      if (b.mutatorTimer <= 0) {
+        b.mutatorTimer = b.mutator.interval;
+        triggerBossMutator(b, bounds);
+      }
+    }
+
+    // 1. Execução de Dash ativo (Vortex Stalker / Neon Viper / Siege Rammer)
     if (b.dashTimer > 0) {
       b.dashTimer -= dt;
-      const dashSpeed = b.isMiniBoss ? 720 : 840;
+      const dashSpeed = b.isMiniBoss ? 720 : 850;
       b.x += b.dashDirX * dashSpeed * dt;
       b.y += b.dashDirY * dashSpeed * dt;
 
-      if (Math.random() < 0.7) {
+      if (Math.random() < 0.75) {
         createSparks(b.x, b.y, b.color, 2);
       }
 
-      // Neon Viper solta minas de plasma no rastro do dash
-      if (b.archetype === 'viper' && Math.random() < 0.25) {
-        fireBossBullet(b.x, b.y, 0, 0, 8, 16, '#00f0ff', { life: 2.8, explodeAfter: 1.3, explodeCount: 4, explodeSpeed: 210 });
+      if (b.archetype === 'viper' && Math.random() < 0.22) {
+        spawnHazardStrikeZone(b.x, b.y, 68, 1.1, '#00f0ff', 18);
       }
 
       if (b.dashTimer <= 0) {
-        // Ao concluir o dash: dispara estilhaços laterais
-        const perp = Math.atan2(b.dashDirY, b.dashDirX) + Math.PI * 0.5;
-        for (let k = 0; k < 4; k++) {
-          fireBossBullet(b.x, b.y, perp + k * (Math.PI * 0.5), 250, 6, 15, b.color);
+        if (b.archetype === 'rammer') {
+          spawnHazardShockRing(b.x, b.y, 320, 290, 14, b.color, 16);
+        } else {
+          const perp = Math.atan2(b.dashDirY, b.dashDirX) + Math.PI * 0.5;
+          for (let k = 0; k < 4; k++) {
+            fireBossBullet(b.x, b.y, perp + k * (Math.PI * 0.5), 255, 6, 15, b.color);
+          }
         }
         playSynthSound('enemy_shot');
 
@@ -1755,31 +2197,28 @@
         }
       }
     } else if (b.telegraphTimer > 0) {
-      // 2. Telegrafo visual antes de Dash ou Railgun
       b.telegraphTimer -= dt;
       if (b.telegraphTimer <= 0) {
         if (b.archetype === 'goliath') {
-          // Railgun hiper-veloz triplo na direção travada
           const railAng = Math.atan2(b.aimLockY - b.y, b.aimLockX - b.x);
+          spawnHazardBeam(b.x, b.y, railAng, 1100, 26, 0, 0.12, 0.45, '#ef4444', true);
           for (let s = -1; s <= 1; s++) {
-            fireBossBullet(b.x, b.y, railAng + s * 0.05, 560, 8, 22, '#ef4444', { life: 3.0 });
+            fireBossBullet(b.x, b.y, railAng + s * 0.06, 560, 8, 22, '#ef4444', { life: 3.0 });
           }
-          screenShake = Math.max(screenShake, 7);
+          screenShake = Math.max(screenShake, 8);
           playSynthSound('laser_heavy');
         } else {
-          // Inicia o Dash telegrafado
           b.dashTimer = b.isMiniBoss ? 0.36 : 0.42;
           playSynthSound('dash');
         }
       }
     } else {
-      // 3. Movimentação & Padrões únicos por Arquétipo
       const toPlayerAng = Math.atan2(player.y - b.y, player.x - b.x);
       const distToPlayer = Math.hypot(player.x - b.x, player.y - b.y);
 
       switch (b.archetype) {
+        // === 8 MINI-BOSSES ===
         case 'stalker': {
-          // Orbita o jogador em média distância e prepara Dash telegrafado
           const orbitAng = toPlayerAng + Math.PI * 0.42;
           const radialPush = distToPlayer > 310 ? 0.6 : distToPlayer < 220 ? -0.6 : 0;
           b.x += (Math.cos(orbitAng) + Math.cos(toPlayerAng) * radialPush) * b.speed * pace * dt;
@@ -1795,7 +2234,7 @@
 
           b.shootTimer -= dt * pace;
           if (b.shootTimer <= 0) {
-            b.shootTimer = 1.9;
+            b.shootTimer = 2.0;
             for (let s = -1; s <= 1; s++) {
               fireBossBullet(b.x, b.y, toPlayerAng + s * 0.22, 300, 6, 14, b.color);
             }
@@ -1805,7 +2244,6 @@
         }
 
         case 'artillery': {
-          // Mantém distância tática e alterna anéis radiais + minas explosivas
           const desired = 360;
           const moveSign = distToPlayer > desired + 40 ? 1 : distToPlayer < desired - 40 ? -0.9 : 0;
           const strafe = toPlayerAng + Math.PI * 0.5;
@@ -1817,49 +2255,171 @@
             b.shootTimer = 2.1;
             b.patternIndex = (b.patternIndex + 1) % 2;
             if (b.patternIndex === 0) {
-              // Anel de 8 projéteis
-              for (let k = 0; k < 8; k++) {
-                fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 8 + b.phaseTimer, 240, 6.5, 15, b.color);
+              // Bombardeio Orbital preditivo em 3 zonas!
+              for (let k = 0; k < 3; k++) {
+                const ox = player.x + player.vx * 0.35 + (Math.random() - 0.5) * 180;
+                const oy = player.y + player.vy * 0.35 + (Math.random() - 0.5) * 180;
+                spawnHazardStrikeZone(ox, oy, 75, 1.15, b.color, 20);
               }
             } else {
-              // 2 Orbes explosivas lentas que detonam em 6 estilhaços
               for (let s = -1; s <= 1; s += 2) {
                 fireBossBullet(b.x, b.y, toPlayerAng + s * 0.26, 165, 10, 18, '#f59e0b', {
-                  life: 3.0,
-                  explodeAfter: 1.35,
-                  explodeCount: 6,
-                  explodeSpeed: 245,
-                  explodeColor: '#ec4899'
+                  life: 3.0, explodeAfter: 1.3, explodeCount: 6, explodeSpeed: 245, explodeColor: '#ec4899'
                 });
               }
+              playSynthSound('enemy_shot');
             }
-            playSynthSound('enemy_shot');
           }
           break;
         }
 
         case 'warden': {
-          // Avança firme enquanto dispara espirais duplas giratórias
           b.x += Math.cos(toPlayerAng) * b.speed * pace * dt;
           b.y += Math.sin(toPlayerAng) * b.speed * pace * dt;
 
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 3.2;
+            spawnHazardShockRing(b.x, b.y, 410, 250, 14, b.color, 18);
+          }
+
           b.shootTimer -= dt * pace;
           if (b.shootTimer <= 0) {
-            b.shootTimer = 0.24;
-            b.spiralAngle += 0.42;
+            b.shootTimer = 0.26;
+            b.spiralAngle += 0.44;
             fireBossBullet(b.x, b.y, b.spiralAngle, 235, 6, 14, b.color);
             fireBossBullet(b.x, b.y, b.spiralAngle + Math.PI, 235, 6, 14, '#ffffff');
-            b.burstShotsLeft = (b.burstShotsLeft + 1) % 10;
-            if (b.burstShotsLeft === 0) {
-              b.shootTimer = 1.5; // Breve janela de respiro após cada ciclo de espiral
+            b.burstShotsLeft = (b.burstShotsLeft + 1) % 8;
+            if (b.burstShotsLeft === 0) b.shootTimer = 1.6;
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'singularity': {
+          const orbitAng = toPlayerAng - Math.PI * 0.45;
+          b.x += Math.cos(orbitAng) * b.speed * pace * dt;
+          b.y += Math.sin(orbitAng) * b.speed * pace * dt;
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 3.8;
+            const gx = (player.x + b.x) * 0.5 + (Math.random() - 0.5) * 140;
+            const gy = (player.y + b.y) * 0.5 + (Math.random() - 0.5) * 140;
+            spawnHazardGravityWell(gx, gy, 270, 235, 5.2, b.color);
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 2.0;
+            for (let k = 0; k < 6; k++) {
+              fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 6 + b.phaseTimer, 235, 6, 14, b.color);
             }
             playSynthSound('enemy_shot');
           }
           break;
         }
 
+        case 'scythe': {
+          // Mantém distância média enquanto projeta 2 Feixes Laser Giratórios!
+          const pull = distToPlayer > 280 ? 0.7 : distToPlayer < 180 ? -0.7 : 0;
+          const strafe = toPlayerAng + Math.PI * 0.5;
+          b.x += (Math.cos(strafe) * 0.7 + Math.cos(toPlayerAng) * pull) * b.speed * pace * dt;
+          b.y += (Math.sin(strafe) * 0.7 + Math.sin(toPlayerAng) * pull) * b.speed * pace * dt;
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 5.2;
+            const startAng = toPlayerAng + 0.55;
+            const dir = Math.random() < 0.5 ? 1 : -1;
+            spawnHazardBeam(b.x, b.y, startAng, 540, 16, dir * 1.15, 0.9, 2.6, b.color, true);
+            spawnHazardBeam(b.x, b.y, startAng + Math.PI, 540, 16, dir * 1.15, 0.9, 2.6, b.color, true);
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 2.1;
+            for (let s = -1; s <= 1; s++) {
+              fireBossBullet(b.x, b.y, toPlayerAng + s * 0.24, 270, 6, 14, b.color);
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'mirage': {
+          const strafe = toPlayerAng + Math.PI * 0.45;
+          b.x += Math.cos(strafe) * b.speed * pace * dt;
+          b.y += Math.sin(strafe) * b.speed * pace * dt;
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 4.6;
+            // Teleporta para outro ângulo ao redor do jogador e deixa 2 Holo-Clones!
+            spawnHazardHoloClone(b.x, b.y, 70 + b.level * 5, 6.5, b.color, 'mirage');
+            createExplosion(b.x, b.y, b.color, 18);
+            const blinkAng = toPlayerAng + Math.PI + (Math.random() - 0.5) * 1.4;
+            b.x = Math.max(bounds.minX + 60, Math.min(bounds.maxX - 60, player.x + Math.cos(blinkAng) * 290));
+            b.y = Math.max(bounds.minY + 60, Math.min(bounds.maxY - 60, player.y + Math.sin(blinkAng) * 290));
+            createExplosion(b.x, b.y, '#ffffff', 18);
+            spawnHazardHoloClone(b.x + 60, b.y - 40, 70 + b.level * 5, 6.5, b.color, 'mirage');
+          }
+          break;
+        }
+
+        case 'tesla': {
+          const strafe = toPlayerAng - Math.PI * 0.5;
+          b.x += Math.cos(strafe) * b.speed * pace * dt;
+          b.y += Math.sin(strafe) * b.speed * pace * dt;
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 4.2;
+            const perp = toPlayerAng + Math.PI * 0.5;
+            const span = 175;
+            spawnHazardPylonPair(
+              Math.max(bounds.minX + 40, Math.min(bounds.maxX - 40, player.x + Math.cos(perp) * span)),
+              Math.max(bounds.minY + 40, Math.min(bounds.maxY - 40, player.y + Math.sin(perp) * span)),
+              Math.max(bounds.minX + 40, Math.min(bounds.maxX - 40, player.x - Math.cos(perp) * span)),
+              Math.max(bounds.minY + 40, Math.min(bounds.maxY - 40, player.y - Math.sin(perp) * span)),
+              5.5, b.color
+            );
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 2.2;
+            for (let k = 0; k < 6; k++) {
+              fireBossBullet(b.x, b.y, toPlayerAng + (k - 2.5) * 0.22, 260, 5.5, 14, b.color);
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'rammer': {
+          // Quica nas paredes da arena + dispara Firewall Sweeps + investidas
+          b.x += b.ramVx * pace * dt;
+          b.y += b.ramVy * pace * dt;
+          if (b.x <= bounds.minX + b.radius || b.x >= bounds.maxX - b.radius) {
+            b.ramVx *= -1;
+            spawnHazardShockRing(b.x, b.y, 260, 280, 12, b.color, 14);
+          }
+          if (b.y <= bounds.minY + b.radius || b.y >= bounds.maxY - b.radius) {
+            b.ramVy *= -1;
+            spawnHazardShockRing(b.x, b.y, 260, 280, 12, b.color, 14);
+          }
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 4.5;
+            spawnHazardFirewall(Math.random() < 0.5 ? 'x' : 'y', bounds, 310, 165, b.color);
+          }
+          break;
+        }
+
+        // === 8 CHEFES TITÃS ===
         case 'goliath': {
-          // Patrulha horizontal + ciclo de 3 padrões (Leque 7-way -> Anel 14-way -> Railgun telegrafado)
           const targetX = (V_WIDTH * 0.5) + Math.sin(b.phaseTimer * 0.7) * Math.min(420, bounds.width * 0.34);
           const targetY = bounds.minY + 130 + Math.cos(b.phaseTimer * 1.3) * 45;
           b.x += (targetX - b.x) * Math.min(1, 2.5 * dt);
@@ -1870,40 +2430,38 @@
             b.patternIndex = (b.patternIndex + 1) % 3;
             if (b.patternIndex === 0) {
               for (let s = -3; s <= 3; s++) {
-                fireBossBullet(b.x, b.y, toPlayerAng + s * 0.15, 290, 7, 18, '#ef4444');
+                fireBossBullet(b.x, b.y, toPlayerAng + s * 0.15, 295, 7, 18, '#ef4444');
               }
-              b.shootTimer = 1.75;
+              b.shootTimer = 1.7;
               playSynthSound('enemy_shot');
             } else if (b.patternIndex === 1) {
               for (let k = 0; k < 14; k++) {
                 fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 14 + b.phaseTimer, 240, 6.5, 16, '#ffffff');
               }
-              b.shootTimer = 1.85;
+              b.shootTimer = 1.8;
               playSynthSound('enemy_shot');
             } else {
-              // Trava mira para Railgun telegrafado
               b.aimLockX = player.x;
               b.aimLockY = player.y;
               b.telegraphTimer = 0.85;
-              b.shootTimer = 2.0;
+              b.shootTimer = 2.1;
             }
           }
           break;
         }
 
         case 'viper': {
-          // Interceptador ágil: faz combo de 2 Dashes + explosão de vórtice 12-way
           const strafe = toPlayerAng + Math.PI * 0.45;
           b.x += (Math.cos(strafe) + Math.cos(toPlayerAng) * 0.35) * b.speed * pace * dt;
           b.y += (Math.sin(strafe) + Math.sin(toPlayerAng) * 0.35) * b.speed * pace * dt;
 
           b.dashCooldown -= dt * pace;
           if (b.dashCooldown <= 0) {
-            b.dashCooldown = 3.8;
-            b.dashCombo = 1; // 2 dashes em sequência!
+            b.dashCooldown = 3.6;
+            b.dashCombo = 2; // 3 dashes em sequência!
             b.dashDirX = Math.cos(toPlayerAng);
             b.dashDirY = Math.sin(toPlayerAng);
-            b.telegraphTimer = 0.55;
+            b.telegraphTimer = 0.5;
           }
 
           b.shootTimer -= dt * pace;
@@ -1918,11 +2476,16 @@
         }
 
         case 'overmind': {
-          // Flutua para o centro e solta espirais duplas + buscadores com curva suave
           const cx = V_WIDTH * 0.5 + Math.cos(b.phaseTimer * 0.45) * 140;
           const cy = V_HEIGHT * 0.5 + Math.sin(b.phaseTimer * 0.65) * 110;
           b.x += (cx - b.x) * Math.min(1, 1.8 * dt);
           b.y += (cy - b.y) * Math.min(1, 1.8 * dt);
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 4.4;
+            spawnHazardShockRing(b.x, b.y, 480, 260, 15, b.color, 18);
+          }
 
           b.shootTimer -= dt * pace;
           if (b.shootTimer <= 0) {
@@ -1934,12 +2497,9 @@
 
             b.burstShotsLeft = (b.burstShotsLeft + 1) % 12;
             if (b.burstShotsLeft === 0) {
-              // Lança 3 orbes teleguiados suaves no fim do ciclo
               for (let s = -1; s <= 1; s++) {
                 fireBossBullet(b.x, b.y, toPlayerAng + s * 0.5, 220, 8, 18, '#f59e0b', {
-                  life: 4.0,
-                  homing: 1.7,
-                  homingTimer: 1.5
+                  life: 4.0, homing: 1.7, homingTimer: 1.5
                 });
               }
               b.patternIndex++;
@@ -1951,30 +2511,29 @@
         }
 
         case 'architect': {
-          // Alterna bombas de singularidade (explodem em 8 pontas) + tiros de satélite rápidos
           const desired = 340;
           const pull = distToPlayer > desired + 45 ? 0.8 : distToPlayer < desired - 45 ? -0.8 : 0;
           const orbit = toPlayerAng - Math.PI * 0.5;
           b.x += (Math.cos(orbit) * 0.75 + Math.cos(toPlayerAng) * pull) * b.speed * pace * dt;
           b.y += (Math.sin(orbit) * 0.75 + Math.sin(toPlayerAng) * pull) * b.speed * pace * dt;
 
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 4.6;
+            spawnHazardGravityWell(player.x + (Math.random() - 0.5) * 200, player.y + (Math.random() - 0.5) * 200, 290, 250, 5.5, b.color);
+          }
+
           b.shootTimer -= dt * pace;
           if (b.shootTimer <= 0) {
             b.patternIndex = (b.patternIndex + 1) % 2;
             if (b.patternIndex === 0) {
-              // 3 bombas de fragmentação
               for (let s = -1; s <= 1; s++) {
                 fireBossBullet(b.x, b.y, toPlayerAng + s * 0.38, 175, 10, 18, '#f59e0b', {
-                  life: 3.2,
-                  explodeAfter: 1.35,
-                  explodeCount: 8,
-                  explodeSpeed: 255,
-                  explodeColor: '#ffffff'
+                  life: 3.2, explodeAfter: 1.35, explodeCount: 8, explodeSpeed: 255, explodeColor: '#ffffff'
                 });
               }
               b.shootTimer = 2.0;
             } else {
-              // Tiros rápidos saindo dos 4 satélites orbitais
               for (let k = 0; k < 4; k++) {
                 const satAng = b.phaseTimer * 2.2 + (k * Math.PI * 0.5);
                 const sx = b.x + Math.cos(satAng) * (b.radius + 26);
@@ -1983,6 +2542,133 @@
                 fireBossBullet(sx, sy, aim, 370, 6, 16, '#00f0ff');
               }
               b.shootTimer = 1.4;
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'helios': {
+          // Flutua para o centro e projeta uma CRUZ DE 4 LASERS GIRATÓRIOS + Chuva de Ataques Orbitais!
+          const cx = V_WIDTH * 0.5 + Math.sin(b.phaseTimer * 0.5) * 160;
+          const cy = V_HEIGHT * 0.5 + Math.cos(b.phaseTimer * 0.4) * 110;
+          b.x += (cx - b.x) * Math.min(1, 1.5 * dt);
+          b.y += (cy - b.y) * Math.min(1, 1.5 * dt);
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 5.6;
+            const rotDir = b.patternIndex % 2 === 0 ? 0.85 : -0.85;
+            b.patternIndex++;
+            const base = toPlayerAng + 0.45;
+            for (let k = 0; k < 4; k++) {
+              spawnHazardBeam(b.x, b.y, base + k * (Math.PI * 0.5), 760, 18, rotDir, 1.0, 3.0, b.color, true);
+            }
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 2.1;
+            for (let s = 0; s < 4; s++) {
+              spawnHazardStrikeZone(
+                player.x + (Math.random() - 0.5) * 260,
+                player.y + (Math.random() - 0.5) * 260,
+                74, 1.2, '#f59e0b', 20
+              );
+            }
+          }
+          break;
+        }
+
+        case 'leviathan': {
+          // Desliza pelas bordas e varre a arena com Paredes Firewall horizontais e verticais!
+          const tx = (V_WIDTH * 0.5) + Math.cos(b.phaseTimer * 0.55) * Math.min(480, bounds.width * 0.4);
+          const ty = (V_HEIGHT * 0.5) + Math.sin(b.phaseTimer * 0.55) * Math.min(280, bounds.height * 0.35);
+          b.x += (tx - b.x) * Math.min(1, 2.0 * dt);
+          b.y += (ty - b.y) * Math.min(1, 2.0 * dt);
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 3.4;
+            b.patternIndex = (b.patternIndex + 1) % 2;
+            spawnHazardFirewall(b.patternIndex === 0 ? 'x' : 'y', bounds, 350, 145, b.color);
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 1.85;
+            for (let s = -2; s <= 2; s++) {
+              fireBossBullet(b.x, b.y, toPlayerAng + s * 0.18, 285, 7, 17, b.color);
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'hydra': {
+          // Phase-Teleports + invoca até 3 Holo-Clones flanqueadores!
+          const strafe = toPlayerAng + Math.PI * 0.4;
+          b.x += Math.cos(strafe) * b.speed * pace * dt;
+          b.y += Math.sin(strafe) * b.speed * pace * dt;
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 4.8;
+            createExplosion(b.x, b.y, b.color, 24);
+            const cloneCount = bossHazards.filter((h) => h.kind === 'holo_clone').length;
+            if (cloneCount < 3) {
+              for (let c = 0; c < 2; c++) {
+                const ca = toPlayerAng + (c === 0 ? 1.2 : -1.2);
+                spawnHazardHoloClone(player.x + Math.cos(ca) * 260, player.y + Math.sin(ca) * 260, 95 + b.level * 6, 8.0, b.color, 'hydra');
+              }
+            }
+            const nextAng = Math.random() * Math.PI * 2;
+            b.x = Math.max(bounds.minX + 70, Math.min(bounds.maxX - 70, player.x + Math.cos(nextAng) * 330));
+            b.y = Math.max(bounds.minY + 70, Math.min(bounds.maxY - 70, player.y + Math.sin(nextAng) * 330));
+            createExplosion(b.x, b.y, '#ffffff', 24);
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 1.65;
+            for (let s = -2; s <= 2; s++) {
+              fireBossBullet(b.x, b.y, toPlayerAng + s * 0.20, 310, 6.5, 16, b.color);
+            }
+            playSynthSound('enemy_shot');
+          }
+          break;
+        }
+
+        case 'tempest': {
+          // Constrói Redes de Cerca Elétrica + Duplas Ondas de Choque EMP!
+          const orbit = toPlayerAng + Math.PI * 0.5;
+          b.x += Math.cos(orbit) * b.speed * pace * dt;
+          b.y += Math.sin(orbit) * b.speed * pace * dt;
+
+          b.hazardTimer -= dt * pace;
+          if (b.hazardTimer <= 0) {
+            b.hazardTimer = 3.8;
+            b.patternIndex = (b.patternIndex + 1) % 2;
+            if (b.patternIndex === 0) {
+              const baseA = Math.random() * Math.PI * 2;
+              const r = 200;
+              spawnHazardPylonPair(
+                Math.max(bounds.minX + 40, Math.min(bounds.maxX - 40, player.x + Math.cos(baseA) * r)),
+                Math.max(bounds.minY + 40, Math.min(bounds.maxY - 40, player.y + Math.sin(baseA) * r)),
+                Math.max(bounds.minX + 40, Math.min(bounds.maxX - 40, player.x + Math.cos(baseA + 2.2) * r)),
+                Math.max(bounds.minY + 40, Math.min(bounds.maxY - 40, player.y + Math.sin(baseA + 2.2) * r)),
+                6.5, b.color
+              );
+            } else {
+              spawnHazardShockRing(b.x, b.y, 480, 295, 15, b.color, 18);
+            }
+          }
+
+          b.shootTimer -= dt * pace;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 1.9;
+            for (let k = 0; k < 10; k++) {
+              fireBossBullet(b.x, b.y, (k * Math.PI * 2) / 10 + b.phaseTimer, 250, 6, 15, b.color);
             }
             playSynthSound('enemy_shot');
           }
@@ -1998,16 +2684,7 @@
     // Colisão direta com o jogador
     if (player.invulnerableTimer <= 0 && Math.hypot(b.x - player.x, b.y - player.y) <= b.radius + 18) {
       const dmg = b.isMiniBoss ? 20 : 25;
-      player.health -= dmg;
-      player.invulnerableTimer = 0.7;
-      screenShake = 14;
-      createSparks(player.x, player.y, '#ffffff', 14);
-      addFloatingText(player.x, player.y - 25, `-${dmg} HP [${b.isMiniBoss ? 'MINI-BOSS' : 'BOSS'}]`, '#ef4444');
-      playSynthSound('hit');
-
-      if (player.health <= 0) {
-        triggerGameOver();
-      }
+      damagePlayerFromHazard(dmg, b.isMiniBoss ? 'MINI-BOSS' : 'BOSS', '#ef4444');
     }
   }
 
@@ -2023,7 +2700,6 @@
     screenShake = wasMiniBoss ? 16 : 22;
     playSynthSound('boss_defeat');
 
-    // Drops de gemas de XP
     const gemCount = wasMiniBoss ? 5 : 8;
     for (let i = 0; i < gemCount; i++) {
       const ang = (i * Math.PI * 2) / gemCount;
@@ -2038,8 +2714,9 @@
     }
 
     currentBoss = null;
+    bossHazards.length = 0;
     isBossEncounter = false;
-    hordeRemainingToSpawn = 0; // Encerra reforços após derrotar o chefe/mini-chefe
+    hordeRemainingToSpawn = 0;
 
     if (wasMiniBoss) {
       player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.25);
@@ -2049,7 +2726,6 @@
       return;
     }
 
-    // Chefe Titã (10, 20, 30...): Cura 40% e libera Mega Upgrade!
     player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.40);
     addFloatingText(player.x, player.y - 45, '★ SECTOR TITAN PURGED! ★', '#ffffff');
     addFloatingText(player.x, player.y - 70, '+40% REPAIR PROTOCOL', '#10b981');
@@ -2536,6 +3212,33 @@
         }
       }
 
+      // Colisão com clones holográficos dos Bosses
+      let laserConsumedByClone = false;
+      for (let hIdx = bossHazards.length - 1; hIdx >= 0; hIdx--) {
+        const h = bossHazards[hIdx];
+        if (!h || h.kind !== 'holo_clone' || h.hp <= 0 || l.hitEnemies.has(h)) continue;
+        if (Math.hypot(l.x - h.x, l.y - h.y) <= (h.radius || 22) + 8) {
+          l.hitEnemies.add(h);
+          h.hp -= l.damage;
+          l.pierce = (l.pierce !== undefined ? l.pierce : 1) - 1;
+          createSparks(l.x, l.y, h.color || '#ec4899', l.isCrit ? 7 : 4);
+          playSynthSound('hit');
+
+          if (h.hp <= 0) {
+            createSparks(h.x, h.y, h.color || '#ec4899', 12);
+            addFloatingText(h.x, h.y - 20, 'CLONE DESTRUÍDO', h.color || '#ec4899');
+            bossHazards.splice(hIdx, 1);
+          }
+
+          if (l.pierce <= 0) {
+            lasers.splice(i, 1);
+            laserConsumedByClone = true;
+            break;
+          }
+        }
+      }
+      if (laserConsumedByClone) continue;
+
       for (let j = 0; j < enemies.length; j++) {
         const e = enemies[j];
         if (l.hitEnemies.has(e)) continue;
@@ -3004,7 +3707,8 @@
     // 5. Enemy Bullets
     drawEnemyBullets();
 
-    // 6. Enemies & Sector Titan Boss
+    // 6. Enemies, Boss Hazards & Sector Titan Boss
+    drawBossHazards();
     drawEnemies();
     if (currentBoss) {
       drawBoss();
@@ -3102,6 +3806,358 @@
     }
   }
 
+  function drawBossHazards() {
+    if (!bossHazards || bossHazards.length === 0) return;
+
+    for (let i = 0; i < bossHazards.length; i++) {
+      const h = bossHazards[i];
+      if (!h) continue;
+      const col = h.color || '#ef4444';
+      ctx.save();
+
+      if (h.kind === 'beam') {
+        const bx = h.x;
+        const by = h.y;
+        const ang = h.angle || 0;
+        const len = h.length || 1400;
+        const w = h.width || 24;
+        const ex = bx + Math.cos(ang) * len;
+        const ey = by + Math.sin(ang) * len;
+
+        if ((h.warnTime || 0) > 0) {
+          ctx.strokeStyle = col;
+          ctx.globalAlpha = 0.22 + 0.14 * Math.sin(survivalTimer * 24);
+          ctx.lineWidth = w;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+
+          ctx.globalAlpha = 0.9;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([14, 10]);
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.beginPath();
+          ctx.arc(bx, by, Math.max(8, w * 0.6), 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 24;
+          ctx.strokeStyle = col;
+          ctx.globalAlpha = 0.8;
+          ctx.lineWidth = w + Math.sin(survivalTimer * 40) * 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = '#ffffff';
+          ctx.globalAlpha = 0.95;
+          ctx.lineWidth = Math.max(4, w * 0.35);
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(bx, by, w * 0.45, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (h.kind === 'shock_ring') {
+        const r = Math.max(2, h.radius || 0);
+        const maxR = h.maxRadius || 600;
+        const thick = h.thickness || 14;
+        ctx.globalAlpha = Math.max(0.25, 1 - (r / maxR) * 0.65);
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = thick;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(2, thick * 0.28);
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (h.kind === 'gravity_well') {
+        const pullR = h.pullRadius || 240;
+        const coreR = h.radius || 28;
+        ctx.translate(h.x, h.y);
+
+        if ((h.warnTime || 0) > 0) {
+          ctx.strokeStyle = col;
+          ctx.globalAlpha = 0.7;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([10, 10]);
+          ctx.beginPath();
+          ctx.arc(0, 0, pullR, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = col;
+          ctx.globalAlpha = 0.35 + 0.25 * Math.sin(survivalTimer * 18);
+          ctx.beginPath();
+          ctx.arc(0, 0, coreR * 0.75, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = col;
+          ctx.globalAlpha = 0.12;
+          ctx.beginPath();
+          ctx.arc(0, 0, pullR, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.globalAlpha = 0.75;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([12, 12]);
+          ctx.beginPath();
+          ctx.arc(0, 0, pullR, -survivalTimer * 2.5, -survivalTimer * 2.5 + Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          for (let ring = 1; ring <= 3; ring++) {
+            const rr = coreR * (1 + ring * 0.75);
+            const rot = survivalTimer * (3.5 - ring * 0.7) * (ring % 2 === 0 ? -1 : 1);
+            ctx.strokeStyle = ring === 1 ? '#ffffff' : col;
+            ctx.globalAlpha = 0.75 - ring * 0.15;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, rr, rot, rot + Math.PI * 1.45);
+            ctx.stroke();
+          }
+
+          ctx.globalAlpha = 1;
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 20;
+          ctx.fillStyle = '#030305';
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = '#ffffff';
+          ctx.globalAlpha = 0.8;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(0, 0, coreR * 0.72, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (h.kind === 'strike_zone') {
+        const r = h.radius || 70;
+        const maxW = Math.max(0.1, h.maxWarn || 1.2);
+        const prog = Math.max(0, Math.min(1, 1 - (h.warnTime || 0) / maxW));
+
+        ctx.strokeStyle = col;
+        ctx.globalAlpha = 0.85;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = col;
+        ctx.globalAlpha = 0.15 + prog * 0.3;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, r * prog, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.globalAlpha = 0.85;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, Math.max(4, r * (1 - prog * 0.78)), 0, Math.PI * 2);
+        ctx.stroke();
+
+        const tick = Math.min(14, r * 0.25);
+        ctx.strokeStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(h.x - r - 4, h.y);
+        ctx.lineTo(h.x - r + tick, h.y);
+        ctx.moveTo(h.x + r + 4, h.y);
+        ctx.lineTo(h.x + r - tick, h.y);
+        ctx.moveTo(h.x, h.y - r - 4);
+        ctx.lineTo(h.x, h.y - r + tick);
+        ctx.moveTo(h.x, h.y + r + 4);
+        ctx.lineTo(h.x, h.y + r - tick);
+        ctx.stroke();
+      } else if (h.kind === 'wall_sweep') {
+        const axis = h.axis || 'x';
+        const pos = h.pos || 0;
+        const minS = h.minSpan !== undefined ? h.minSpan : -1200;
+        const maxS = h.maxSpan !== undefined ? h.maxSpan : 1200;
+        const halfGap = (h.gapSize || 160) * 0.5;
+        const gStart = Math.max(minS, Math.min(maxS, (h.gapPos || 0) - halfGap));
+        const gEnd = Math.max(minS, Math.min(maxS, (h.gapPos || 0) + halfGap));
+        const segments = [];
+        if (gStart > minS) segments.push([minS, gStart]);
+        if (maxS > gEnd) segments.push([gEnd, maxS]);
+
+        const drawSegLine = (a, b) => {
+          ctx.beginPath();
+          if (axis === 'x') {
+            ctx.moveTo(pos, a);
+            ctx.lineTo(pos, b);
+          } else {
+            ctx.moveTo(a, pos);
+            ctx.lineTo(b, pos);
+          }
+          ctx.stroke();
+        };
+
+        if ((h.warnTime || 0) > 0) {
+          ctx.strokeStyle = col;
+          ctx.globalAlpha = 0.5 + 0.2 * Math.sin(survivalTimer * 22);
+          ctx.lineWidth = 6;
+          ctx.setLineDash([12, 10]);
+          for (const [sA, sB] of segments) drawSegLine(sA, sB);
+          ctx.setLineDash([]);
+        } else {
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 18;
+          ctx.strokeStyle = col;
+          ctx.globalAlpha = 0.85;
+          ctx.lineWidth = 14;
+          ctx.lineCap = 'round';
+          for (const [sA, sB] of segments) drawSegLine(sA, sB);
+
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = '#ffffff';
+          ctx.globalAlpha = 0.95;
+          ctx.lineWidth = 4;
+          for (const [sA, sB] of segments) drawSegLine(sA, sB);
+        }
+
+        // Balizas indicando a brecha segura
+        ctx.fillStyle = '#22d3ee';
+        ctx.globalAlpha = 0.95;
+        for (const gate of [gStart, gEnd]) {
+          const gx = axis === 'x' ? pos : gate;
+          const gy = axis === 'x' ? gate : pos;
+          ctx.beginPath();
+          ctx.arc(gx, gy, 7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (h.kind === 'pylon') {
+        // Cerca elétrica entre pilones pareados (desenha 1x por par)
+        if (h.pairId !== undefined) {
+          for (let j = i + 1; j < bossHazards.length; j++) {
+            const other = bossHazards[j];
+            if (!other || other.kind !== 'pylon' || other.pairId !== h.pairId) continue;
+            const dx = other.x - h.x;
+            const dy = other.y - h.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const nx = -dy / dist;
+            const ny = dx / dist;
+
+            ctx.save();
+            ctx.shadowColor = col;
+            ctx.shadowBlur = 16;
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(h.x, h.y);
+            const steps = 6;
+            for (let s = 1; s < steps; s++) {
+              const t = s / steps;
+              const jitter = Math.sin(survivalTimer * 32 + s * 2.7 + h.pairId) * 10;
+              ctx.lineTo(h.x + dx * t + nx * jitter, h.y + dy * t + ny * jitter);
+            }
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        const pr = h.radius || 16;
+        ctx.translate(h.x, h.y);
+        ctx.rotate(survivalTimer * 2.5);
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#09090b';
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let s = 0; s < 4; s++) {
+          const a = (s * Math.PI) / 2;
+          const px = Math.cos(a) * pr;
+          const py = Math.sin(a) * pr;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (h.kind === 'holo_clone') {
+        const r = h.radius || 22;
+        const maxHp = Math.max(1, h.maxHp || h.hp || 100);
+        const hpRatio = Math.max(0, Math.min(1, (h.hp || 0) / maxHp));
+        ctx.globalAlpha = 0.62 + 0.2 * Math.sin(survivalTimer * 18 + i);
+        ctx.translate(h.x, h.y);
+
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 12;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        const cSides = 6;
+        for (let s = 0; s < cSides; s++) {
+          const a = (s * Math.PI * 2) / cSides + survivalTimer * 1.4;
+          const px = Math.cos(a) * r;
+          const py = Math.sin(a) * r;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Barra de vida do clone
+        ctx.shadowBlur = 0;
+        const bw = r * 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.fillRect(-bw / 2, -r - 12, bw, 4);
+        ctx.fillStyle = col;
+        ctx.fillRect(-bw / 2, -r - 12, bw * hpRatio, 4);
+
+        ctx.font = '700 8px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('HOLO', 0, -r - 16);
+      }
+
+      ctx.restore();
+    }
+  }
+
   function drawBoss() {
     if (!currentBoss || currentBoss.hp <= 0) return;
     const b = currentBoss;
@@ -3109,18 +4165,22 @@
 
     ctx.save();
 
-    // Linha de telégrafo visual antes de Dash (Stalker / Viper) ou Railgun (Goliath)
+    // Linha de telégrafo visual antes de Dash ou Disparo carregado
     if (b.telegraphTimer > 0) {
-      const aimAng = b.archetype === 'goliath'
-        ? Math.atan2(b.aimLockY - b.y, b.aimLockX - b.x)
-        : Math.atan2(b.dashDirY, b.dashDirX);
+      let aimAng = Math.atan2(player.y - b.y, player.x - b.x);
+      if (Number.isFinite(b.aimLockX) && Number.isFinite(b.aimLockY)) {
+        aimAng = Math.atan2(b.aimLockY - b.y, b.aimLockX - b.x);
+      } else if (Number.isFinite(b.dashDirX) && Number.isFinite(b.dashDirY) && (b.dashDirX !== 0 || b.dashDirY !== 0)) {
+        aimAng = Math.atan2(b.dashDirY, b.dashDirX);
+      }
       ctx.save();
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.85;
       ctx.lineWidth = b.archetype === 'goliath' ? 4 : 2.5;
       ctx.setLineDash([12, 8]);
       ctx.beginPath();
       ctx.moveTo(b.x, b.y);
-      ctx.lineTo(b.x + Math.cos(aimAng) * 900, b.y + Math.sin(aimAng) * 900);
+      ctx.lineTo(b.x + Math.cos(aimAng) * 950, b.y + Math.sin(aimAng) * 950);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
@@ -3128,8 +4188,9 @@
 
     ctx.translate(b.x, b.y);
 
-    // 1. Aura de pulso de escudo
-    const pulseR = b.radius * (1.18 + Math.sin(survivalTimer * 6) * 0.08);
+    // 1. Anéis de energia configuráveis por b.rings
+    const ringCount = b.rings || 1;
+    const pulseR = b.radius * (1.16 + Math.sin(survivalTimer * 6) * 0.07);
     ctx.strokeStyle = col;
     ctx.globalAlpha = 0.45;
     ctx.lineWidth = 2;
@@ -3138,51 +4199,162 @@
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Anel secundário rotativo
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([10, 8]);
-    ctx.beginPath();
-    ctx.arc(0, 0, b.radius * 1.35, survivalTimer * 2, survivalTimer * 2 + Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    if (ringCount >= 2) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.arc(0, 0, b.radius * 1.35, survivalTimer * 2, survivalTimer * 2 + Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
-    // 2. Casco geométrico único por arquétipo
+    if (ringCount >= 3) {
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([20, 14]);
+      ctx.beginPath();
+      ctx.arc(0, 0, b.radius * 1.54, -survivalTimer * 1.6, -survivalTimer * 1.6 + Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
+    // 2. Casco geométrico multi-forma (Procedural & Arquétipos)
+    const fallbackSides = {
+      stalker: 4,
+      artillery: 8,
+      warden: 4,
+      singularity: 10,
+      scythe: 3,
+      mirage: 6,
+      tesla: 6,
+      rammer: 5,
+      goliath: 6,
+      viper: 3,
+      overmind: 12,
+      architect: 4,
+      helios: 8,
+      leviathan: 7,
+      hydra: 6,
+      tempest: 5
+    };
+    const segs = Math.max(3, b.sides || fallbackSides[b.archetype] || 6);
+    const shape = b.shape || 'poly';
+    const spinners = new Set(['warden', 'overmind', 'artillery', 'singularity', 'tempest', 'helios', 'tesla']);
+    const trackers = new Set(['viper', 'scythe', 'rammer', 'leviathan']);
+    const rotOffset = spinners.has(b.archetype)
+      ? (b.phaseTimer || survivalTimer) * 1.1
+      : (trackers.has(b.archetype) ? Math.atan2(player.y - b.y, player.x - b.x) : Math.PI / segs);
+
     ctx.shadowColor = col;
     ctx.shadowBlur = 18;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = b.isMiniBoss ? 2.5 : 3.5;
     ctx.fillStyle = '#09090b';
 
-    const sidesByArchetype = {
-      stalker: 4,
-      artillery: 8,
-      warden: 4,
-      goliath: 6,
-      viper: 3,
-      overmind: 12,
-      architect: 3
+    const buildHullPath = (scale) => {
+      const r = b.radius * scale;
+      ctx.beginPath();
+      if (shape === 'star') {
+        const pts = segs * 2;
+        for (let s = 0; s < pts; s++) {
+          const a = (s * Math.PI * 2) / pts + rotOffset;
+          const rad = (s % 2 === 0) ? r * 1.24 : r * 0.6;
+          const px = Math.cos(a) * rad;
+          const py = Math.sin(a) * rad;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      } else if (shape === 'saw') {
+        const pts = segs * 2;
+        for (let s = 0; s < pts; s++) {
+          const isOuter = s % 2 === 0;
+          const a = (s * Math.PI * 2) / pts + rotOffset + (isOuter ? 0.14 : 0);
+          const rad = isOuter ? r * 1.18 : r * 0.72;
+          const px = Math.cos(a) * rad;
+          const py = Math.sin(a) * rad;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      } else if (shape === 'wing') {
+        const pts = [
+          [r * 1.32, 0],
+          [-r * 0.35, -r * 1.18],
+          [-r * 0.95, -r * 0.85],
+          [-r * 0.52, -r * 0.32],
+          [-r * 0.85, 0],
+          [-r * 0.52, r * 0.32],
+          [-r * 0.95, r * 0.85],
+          [-r * 0.35, r * 1.18]
+        ];
+        const cosA = Math.cos(rotOffset);
+        const sinA = Math.sin(rotOffset);
+        for (let s = 0; s < pts.length; s++) {
+          const lx = pts[s][0];
+          const ly = pts[s][1];
+          const px = lx * cosA - ly * sinA;
+          const py = lx * sinA + ly * cosA;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      } else {
+        for (let s = 0; s < segs; s++) {
+          const a = (s * Math.PI * 2) / segs + rotOffset;
+          const rMod = (b.archetype === 'stalker' && s % 2 === 0) ? r * 1.2 : r;
+          const px = Math.cos(a) * rMod;
+          const py = Math.sin(a) * rMod;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      }
+      ctx.closePath();
     };
-    const segs = sidesByArchetype[b.archetype] || 6;
-    const rotOffset = (b.archetype === 'warden' || b.archetype === 'overmind' || b.archetype === 'artillery')
-      ? b.phaseTimer * 1.1
-      : (b.archetype === 'viper' ? Math.atan2(player.y - b.y, player.x - b.x) : Math.PI / 6);
 
-    ctx.beginPath();
-    for (let s = 0; s <= segs; s++) {
-      const a = (s * Math.PI * 2) / segs + rotOffset;
-      const rMod = (b.archetype === 'stalker' && s % 2 === 0) ? b.radius * 1.2 : b.radius;
-      const px = Math.cos(a) * rMod;
-      const py = Math.sin(a) * rMod;
-      if (s === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
+    buildHullPath(1);
     ctx.fill();
     ctx.stroke();
 
-    // 3. Acessórios por arquétipo (Torretas ou Satélites orbitais)
-    if (b.archetype === 'goliath') {
+    // Camada interna de wireframe para destaque tático
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.65;
+    ctx.lineWidth = 1.5;
+    if (shape === 'vortex') {
+      ctx.beginPath();
+      for (let s = 0; s < segs; s++) {
+        const a = (s * Math.PI * 2) / segs - rotOffset * 1.6;
+        const px = Math.cos(a) * (b.radius * 0.62);
+        const py = Math.sin(a) * (b.radius * 0.62);
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      buildHullPath(0.66);
+      ctx.stroke();
+    }
+
+    if (shape === 'shield') {
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 4;
+      for (let s = 0; s < 3; s++) {
+        const startA = rotOffset + (s * Math.PI * 2) / 3 - 0.35;
+        ctx.beginPath();
+        ctx.arc(0, 0, b.radius * 1.24, startA, startA + 0.7);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // 3. Acessórios: Torretas laterais ou radiais
+    const turretCount = typeof b.turrets === 'number'
+      ? b.turrets
+      : (b.turrets || b.archetype === 'goliath' ? 2 : 0);
+    if (turretCount === 2) {
       ctx.fillStyle = '#18181b';
       ctx.strokeStyle = col;
       ctx.lineWidth = 2;
@@ -3190,17 +4362,45 @@
       ctx.strokeRect(-b.radius - 8, -12, 12, 24);
       ctx.fillRect(b.radius - 4, -12, 12, 24);
       ctx.strokeRect(b.radius - 4, -12, 12, 24);
-    } else if (b.archetype === 'architect' || b.archetype === 'artillery') {
-      const satCount = b.archetype === 'architect' ? 4 : 3;
-      for (let k = 0; k < satCount; k++) {
-        const satAng = b.phaseTimer * 2.2 + (k * Math.PI * 2) / satCount;
-        const sx = Math.cos(satAng) * (b.radius + 24);
-        const sy = Math.sin(satAng) * (b.radius + 24);
-        ctx.fillStyle = col;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
-        ctx.fill();
+    } else if (turretCount > 0) {
+      ctx.fillStyle = '#18181b';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      for (let t = 0; t < turretCount; t++) {
+        const ta = rotOffset + (t * Math.PI * 2) / turretCount;
+        ctx.save();
+        ctx.rotate(ta);
+        ctx.fillRect(b.radius * 0.82, -5, 16, 10);
+        ctx.strokeRect(b.radius * 0.82, -5, 16, 10);
+        ctx.restore();
       }
+    }
+
+    // Satélites orbitais
+    const satCount = typeof b.sats === 'number'
+      ? b.sats
+      : (b.archetype === 'architect' ? 4 : (b.archetype === 'artillery' ? 3 : 0));
+    for (let k = 0; k < satCount; k++) {
+      const satAng = (b.phaseTimer || survivalTimer) * 2.2 + (k * Math.PI * 2) / satCount;
+      const sx = Math.cos(satAng) * (b.radius + 26);
+      const sy = Math.sin(satAng) * (b.radius + 26);
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.28;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     // 4. Núcleo do Reator
@@ -3216,12 +4416,25 @@
     ctx.arc(0, 0, b.isMiniBoss ? 4 : 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // 5. Rótulo de Alerta Tático
+    // 5. Rótulo de Alerta Tático + Mutador
     ctx.shadowBlur = 0;
     ctx.fillStyle = col;
     ctx.font = '700 10px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(b.isMiniBoss ? `⚡ MINI-BOSS // ${b.subtitle}` : `⚠ ${b.subtitle}`, 0, -b.radius - 14);
+    const baseTag = b.isMiniBoss ? '⚡ MINI-BOSS' : '⚠ BOSS';
+    const procTag = b.isProcedural ? ' [PROC]' : '';
+    ctx.fillText(`${baseTag}${procTag} // ${b.subtitle || ''}`, 0, -b.radius - 14);
+
+    if (b.mutator) {
+      const mutLabel = typeof b.mutator === 'string'
+        ? b.mutator
+        : (b.mutator.tag || b.mutator.label || b.mutator.name || b.mutator.id || '');
+      if (mutLabel) {
+        ctx.fillStyle = '#facc15';
+        ctx.font = '700 9px "JetBrains Mono", monospace';
+        ctx.fillText(`[MUTATOR: ${mutLabel}]`, 0, -b.radius - 28);
+      }
+    }
 
     ctx.restore();
   }
