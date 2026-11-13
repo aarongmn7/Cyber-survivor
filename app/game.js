@@ -707,18 +707,30 @@
     }
   }
 
-  // Game Parameters & Constants (matching mechanics.json)
+  // Game Parameters & Constants (matching mechanics.json + balanced scaling caps)
   const BASE_PLAYER_SPEED = 380.0;
+  const MAX_PLAYER_SPEED = 540.0;
   const BASE_PLAYER_MAX_HEALTH = 100.0;
   const BASE_LASER_COOLDOWN = 0.40;
   const BASE_LASER_DAMAGE = 25.0;
   const BASE_LASER_SPEED = 650.0;
   const TRIPLE_SHOT_SPREAD = 0.26;
   const ORBITAL_SHIELD_SPEED = 2.8;
-  const ORBITAL_SHIELD_DAMAGE = 45.0;
+  const ORBITAL_SHIELD_DAMAGE = 30.0;
   const BASE_XP_MAGNET_RADIUS = 150.0;
   const BASE_XP_LEVEL_UP = 50.0;
   const BASE_SPAWN_INTERVAL = 1.10;
+
+  // Hard Caps & Diminishing-Return Ceilings (evita bola de neve exponencial da nave)
+  const MAX_PROJECTILES = 7;
+  const MAX_LASER_PIERCE = 4;
+  const MAX_ORBITAL_SHIELDS = 6;
+  const MAX_DRONES = 4;
+  const MAX_CRIT_CHANCE = 0.60;
+  const MAX_CRIT_MULTIPLIER = 3.0;
+  const MAX_FIRE_RATE_STACKS = 6;
+  const MAX_EMP_LEVEL = 3;
+  const MAX_MAGNET_STACKS = 3;
 
   // Player State & Directional Grace Tracking
   let player = {
@@ -745,22 +757,28 @@
   let targetXP = BASE_XP_LEVEL_UP;
   let survivalTimer = 0;
 
-  // Weapons & Upgrades (Uncapped & Scalable)
+  // Weapons & Upgrades (Capped + Retorno Decrescente para manter tensão tática)
+  let fireRateStacks = 0;
   let fireRateMultiplier = 1.0;
+  let playerDamageMult = 1.0;
   let laserCooldownTimer = 0.0;
-  let projectileCount = 1;       // Multishot escalável: 1 -> 3 -> 5 -> 7 -> 9+
-  let laserPierce = 1;           // Penetração de feixes a laser
-  let critChance = 0.05;         // 5% base crit chance
-  let critMultiplier = 2.2;      // Multiplicador crítico
+  let projectileCount = 1;       // Multishot limitado: 1 -> ... -> 7 (+1 Mega max)
+  let laserPierce = 1;           // Penetração limitada: max 4 (+1 Mega)
+  let critChance = 0.05;         // 5% base, teto 60%
+  let critMultiplier = 2.2;      // Teto 3.0x (+0.2 com Turbo Aim)
   let hasOrbitalShield = false;
-  let orbitalShieldCount = 0;    // Sem limite: anéis concêntricos + bloqueio de tiros
+  let hasOrbitalBastion = false;
+  let orbitalShieldCount = 0;    // Teto 6 orbes; cada bloqueio entra em recarga
+  let orbitalDeflectCooldowns = [];
   let orbitalShieldAngle = 0.0;
-  let droneCount = 0;            // Drones orbitais autônomos com tiro independente
+  let droneCount = 0;            // Teto 4 drones autônomos
   let drones = [];
+  let magnetStacks = 0;
   let xpMagnetRadius = BASE_XP_MAGNET_RADIUS;
   let hasEmpNova = false;
+  let empLevel = 0;
   let empTimer = 0.0;
-  const empCooldown = 3.5;
+  const empCooldown = 3.9;
 
   // Aim Assist & Linear Boss Progression
   let hasAimAssist = false;      // Inicialmente FALSO: mira manual e tiro rápido; vira Mega Upgrade no Nível 10!
@@ -825,6 +843,10 @@
   let hordeBannerColor = '#00f0ff';
   let hordeBannerTimer = 0;
 
+  function getThreatDamageScale(lvl = level) {
+    return 1 + Math.max(0, lvl - 1) * 0.045;
+  }
+
   function pickFromRoulette(pool, lastId) {
     if (pool.length <= 1) return pool[0];
     const candidates = pool.filter((item) => item.id !== lastId);
@@ -854,7 +876,7 @@
 
     // Hordas normais com Roleta de Modificadores (menos mobs, porém mais resistentes)
     currentHordeMod = lvl === 1 ? HORDE_MODIFIERS[0] : pickFromRoulette(HORDE_MODIFIERS, currentHordeMod.id);
-    hordeTotal = Math.max(4, Math.min(22, 5 + Math.floor(lvl * 1.1) + (currentHordeMod.countDelta || 0)));
+    hordeTotal = Math.max(4, Math.min(24, 5 + Math.floor(lvl * 1.15) + (currentHordeMod.countDelta || 0)));
     hordeRemainingToSpawn = hordeTotal;
     spawnTimer = 0.4;
 
@@ -896,7 +918,10 @@
       laser_pierce: 72,
       emp_nova: 66,
       magnet: 45,
-      health: hpRatio < 0.55 ? 110 : 35
+      health: hpRatio < 0.55 ? 110 : 35,
+      field_repair: hpRatio < 0.65 ? 105 : 40,
+      overdrive_sync: 58,
+      armor_plating: 54
     };
 
     let bestIdx = 0;
@@ -1223,19 +1248,25 @@
     eliteWarningTimer = 0.0;
     nextEliteTime = 50.0;
 
+    fireRateStacks = 0;
     fireRateMultiplier = 1.0;
+    playerDamageMult = 1.0;
     laserCooldownTimer = 0.0;
     projectileCount = 1;
     laserPierce = 1;
     critChance = 0.05;
     critMultiplier = 2.2;
     hasOrbitalShield = false;
+    hasOrbitalBastion = false;
     orbitalShieldCount = 0;
+    orbitalDeflectCooldowns.length = 0;
     orbitalShieldAngle = 0.0;
     droneCount = 0;
     drones.length = 0;
+    magnetStacks = 0;
     xpMagnetRadius = BASE_XP_MAGNET_RADIUS;
     hasEmpNova = false;
+    empLevel = 0;
     empTimer = 0.0;
 
     hasAimAssist = false;
@@ -1470,8 +1501,9 @@
 
       // EMP Nova
       if (hasEmpNova) {
+        const activeEmpCd = Math.max(2.9, 4.3 - empLevel * 0.4);
         empTimer += dt;
-        if (empTimer >= empCooldown) {
+        if (empTimer >= activeEmpCd) {
           empTimer = 0;
           triggerEmpNova();
         }
@@ -1764,9 +1796,10 @@
       ? BOSS_MUTATORS[Math.floor(Math.random() * BOSS_MUTATORS.length)]
       : null;
 
+    const bossHpScale = 1 + Math.pow(Math.max(0, bossLevel - 5), 1.38) * 0.055;
     const baseHp = isMiniBoss
-      ? 450 + (bossLevel * 70)
-      : 1200 + (bossLevel * 130);
+      ? Math.round((560 + (bossLevel * 115)) * bossHpScale)
+      : Math.round((1550 + (bossLevel * 225)) * bossHpScale);
 
     const entrySide = Math.floor(Math.random() * 3);
     let sx = V_WIDTH * 0.5;
@@ -1833,11 +1866,13 @@
 
   function damagePlayerFromHazard(dmg, label, color) {
     if (player.invulnerableTimer > 0 || state !== GameState.PLAYING) return;
-    player.health -= dmg;
+    const refLevel = currentBoss ? currentBoss.level : level;
+    const scaledDmg = Math.round(dmg * getThreatDamageScale(refLevel));
+    player.health -= scaledDmg;
     player.invulnerableTimer = 0.65;
     screenShake = Math.max(screenShake, 12);
     createSparks(player.x, player.y, color || '#ffffff', 12);
-    addFloatingText(player.x, player.y - 25, `-${dmg} HP [${label}]`, color || '#ef4444');
+    addFloatingText(player.x, player.y - 25, `-${scaledDmg} HP [${label}]`, color || '#ef4444');
     playSynthSound('hit');
     if (player.health <= 0) {
       triggerGameOver();
@@ -2125,13 +2160,15 @@
   }
 
   function fireBossBullet(x, y, ang, speed, radius, damage, color, extras = {}) {
+    const refLevel = currentBoss ? currentBoss.level : level;
+    const scaledDamage = Math.round(damage * getThreatDamageScale(refLevel));
     enemyBullets.push({
       x: x,
       y: y,
       vx: Math.cos(ang) * speed,
       vy: Math.sin(ang) * speed,
       radius: radius,
-      damage: damage,
+      damage: scaledDamage,
       life: extras.life || 4.4,
       maxLife: extras.life || 4.4,
       color: color || '#ffffff',
@@ -2149,7 +2186,8 @@
     const b = currentBoss;
     const bounds = getArenaBounds();
     const isEnraged = b.hp < b.maxHp * 0.5;
-    const pace = isEnraged ? 1.25 : 1.0;
+    const levelPaceBonus = Math.min(0.45, Math.max(0, b.level - 5) * 0.015);
+    const pace = (isEnraged ? 1.25 : 1.0) + levelPaceBonus;
 
     b.phaseTimer += dt;
 
@@ -2719,16 +2757,16 @@
     hordeRemainingToSpawn = 0;
 
     if (wasMiniBoss) {
-      player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.25);
-      overdriveCharge = Math.min(100, overdriveCharge + 35);
+      player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.15);
+      overdriveCharge = Math.min(100, overdriveCharge + 30);
       addFloatingText(player.x, player.y - 45, '★ MINI-BOSS PURGED! ★', defeated.color || '#f59e0b');
-      addFloatingText(player.x, player.y - 70, '+25% REPAIR // +35% OD', '#10b981');
+      addFloatingText(player.x, player.y - 70, '+15% REPAIR // +30% OD', '#10b981');
       return;
     }
 
-    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.40);
+    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.25);
     addFloatingText(player.x, player.y - 45, '★ SECTOR TITAN PURGED! ★', '#ffffff');
-    addFloatingText(player.x, player.y - 70, '+40% REPAIR PROTOCOL', '#10b981');
+    addFloatingText(player.x, player.y - 70, '+25% REPAIR PROTOCOL', '#10b981');
 
     setTimeout(() => {
       openMegaUpgradeModal();
@@ -2739,11 +2777,14 @@
     const baseAngle = Math.atan2(ty - player.y, tx - player.x);
     const spreadStep = 0.12;
     const startAngle = baseAngle - ((projectileCount - 1) * 0.5) * spreadStep;
+    const levelFlatBonus = Math.min(level - 1, 15) * 1.0 + Math.max(0, level - 16) * 0.45;
+    // Leque amplo reduz levemente o dano individual de cada feixe para evitar 1-hit shotgunning em Bosses
+    const multiBoltEfficiency = projectileCount <= 1 ? 1.0 : Math.max(0.66, 1.0 - (projectileCount - 1) * 0.055);
 
     for (let i = 0; i < projectileCount; i++) {
       const ang = startAngle + i * spreadStep;
       const isCrit = Math.random() < critChance;
-      const dmg = (BASE_LASER_DAMAGE + (level - 1) * 1.5) * (isCrit ? critMultiplier : 1.0);
+      const dmg = (BASE_LASER_DAMAGE + levelFlatBonus) * playerDamageMult * multiBoltEfficiency * (isCrit ? critMultiplier : 1.0);
 
       lasers.push({
         x: player.x + Math.cos(ang) * 18,
@@ -2762,17 +2803,21 @@
   function getOrbitalShieldPositions() {
     const positions = [];
     if (orbitalShieldCount <= 0) return positions;
+    let orbIdx = 0;
 
     if (orbitalShieldCount <= 4) {
       const radius = 70;
       for (let i = 0; i < orbitalShieldCount; i++) {
         const ang = orbitalShieldAngle + (i * (Math.PI * 2 / orbitalShieldCount));
         positions.push({
+          index: orbIdx,
+          recharging: (orbitalDeflectCooldowns[orbIdx] || 0) > 0,
           x: player.x + Math.cos(ang) * radius,
           y: player.y + Math.sin(ang) * radius,
           ang: ang,
           radius: radius
         });
+        orbIdx++;
       }
     } else if (orbitalShieldCount <= 10) {
       // Anel 1: 4 orbs a 60px
@@ -2780,11 +2825,14 @@
       for (let i = 0; i < 4; i++) {
         const ang = orbitalShieldAngle + (i * (Math.PI * 2 / 4));
         positions.push({
+          index: orbIdx,
+          recharging: (orbitalDeflectCooldowns[orbIdx] || 0) > 0,
           x: player.x + Math.cos(ang) * r1,
           y: player.y + Math.sin(ang) * r1,
           ang: ang,
           radius: r1
         });
+        orbIdx++;
       }
       // Anel 2: restantes a 95px girando no sentido oposto
       const count2 = orbitalShieldCount - 4;
@@ -2792,11 +2840,14 @@
       for (let i = 0; i < count2; i++) {
         const ang = -orbitalShieldAngle * 1.2 + (i * (Math.PI * 2 / count2));
         positions.push({
+          index: orbIdx,
+          recharging: (orbitalDeflectCooldowns[orbIdx] || 0) > 0,
           x: player.x + Math.cos(ang) * r2,
           y: player.y + Math.sin(ang) * r2,
           ang: ang,
           radius: r2
         });
+        orbIdx++;
       }
     } else {
       // Anel 1: 4 orbs a 55px
@@ -2804,22 +2855,28 @@
       for (let i = 0; i < 4; i++) {
         const ang = orbitalShieldAngle + (i * (Math.PI * 2 / 4));
         positions.push({
+          index: orbIdx,
+          recharging: (orbitalDeflectCooldowns[orbIdx] || 0) > 0,
           x: player.x + Math.cos(ang) * r1,
           y: player.y + Math.sin(ang) * r1,
           ang: ang,
           radius: r1
         });
+        orbIdx++;
       }
       // Anel 2: 6 orbs a 90px
       const r2 = 90;
       for (let i = 0; i < 6; i++) {
         const ang = -orbitalShieldAngle * 1.15 + (i * (Math.PI * 2 / 6));
         positions.push({
+          index: orbIdx,
+          recharging: (orbitalDeflectCooldowns[orbIdx] || 0) > 0,
           x: player.x + Math.cos(ang) * r2,
           y: player.y + Math.sin(ang) * r2,
           ang: ang,
           radius: r2
         });
+        orbIdx++;
       }
       // Anel 3: restantes a 125px
       const count3 = orbitalShieldCount - 10;
@@ -2827,11 +2884,14 @@
       for (let i = 0; i < count3; i++) {
         const ang = orbitalShieldAngle * 1.3 + (i * (Math.PI * 2 / count3));
         positions.push({
+          index: orbIdx,
+          recharging: (orbitalDeflectCooldowns[orbIdx] || 0) > 0,
           x: player.x + Math.cos(ang) * r3,
           y: player.y + Math.sin(ang) * r3,
           ang: ang,
           radius: r3
         });
+        orbIdx++;
       }
     }
 
@@ -2839,7 +2899,19 @@
   }
 
   function handleOrbitalShield(dt) {
+    while (orbitalDeflectCooldowns.length < orbitalShieldCount) {
+      orbitalDeflectCooldowns.push(0);
+    }
+    for (let idx = 0; idx < orbitalDeflectCooldowns.length; idx++) {
+      if (orbitalDeflectCooldowns[idx] > 0) {
+        orbitalDeflectCooldowns[idx] = Math.max(0, orbitalDeflectCooldowns[idx] - dt);
+      }
+    }
+
     const orbHitRadius = 14;
+    const bastionMult = hasOrbitalBastion ? 1.35 : 1.0;
+    const contactRate = ORBITAL_SHIELD_DAMAGE * bastionMult * dt * 2.0;
+    const deflectCooldownDuration = hasOrbitalBastion ? 0.90 : 1.40;
     const positions = getOrbitalShieldPositions();
 
     for (let p = 0; p < positions.length; p++) {
@@ -2849,7 +2921,7 @@
       for (let j = 0; j < enemies.length; j++) {
         const e = enemies[j];
         if (Math.hypot(pos.x - e.x, pos.y - e.y) <= orbHitRadius + e.radius) {
-          e.hp -= ORBITAL_SHIELD_DAMAGE * dt * 2.8;
+          e.hp -= contactRate;
           createSparks(pos.x, pos.y, '#ffffff', 2);
           if (e.hp <= 0) {
             defeatEnemy(e);
@@ -2860,7 +2932,7 @@
       // Dano contínuo por contato no Boss
       if (currentBoss && currentBoss.hp > 0) {
         if (Math.hypot(pos.x - currentBoss.x, pos.y - currentBoss.y) <= orbHitRadius + currentBoss.radius) {
-          currentBoss.hp -= ORBITAL_SHIELD_DAMAGE * dt * 2.8;
+          currentBoss.hp -= contactRate;
           createSparks(pos.x, pos.y, '#ffffff', 2);
           if (currentBoss.hp <= 0) {
             defeatBoss();
@@ -2868,14 +2940,18 @@
         }
       }
 
-      // 2. Interceptação e destruição tática de projéteis inimigos!
-      for (let b = enemyBullets.length - 1; b >= 0; b--) {
-        const eb = enemyBullets[b];
-        if (Math.hypot(pos.x - eb.x, pos.y - eb.y) <= orbHitRadius + eb.radius + 6) {
-          enemyBullets.splice(b, 1);
-          createSparks(pos.x, pos.y, '#ffffff', 8);
-          playSynthSound('shield_block');
-          addFloatingText(pos.x, pos.y - 12, 'DEFLECTED', '#ffffff');
+      // 2. Interceptação tática com recarga por orbe (evita imunidade 100% passiva)
+      if ((orbitalDeflectCooldowns[pos.index] || 0) <= 0) {
+        for (let b = enemyBullets.length - 1; b >= 0; b--) {
+          const eb = enemyBullets[b];
+          if (Math.hypot(pos.x - eb.x, pos.y - eb.y) <= orbHitRadius + eb.radius + 5) {
+            enemyBullets.splice(b, 1);
+            orbitalDeflectCooldowns[pos.index] = deflectCooldownDuration;
+            createSparks(pos.x, pos.y, '#ffffff', 8);
+            playSynthSound('shield_block');
+            addFloatingText(pos.x, pos.y - 12, 'DEFLECTED', '#ffffff');
+            break;
+          }
         }
       }
     }
@@ -2888,6 +2964,7 @@
       drones.push({ shootTimer: Math.random() * 0.5 });
     }
 
+    const levelFlatBonus = Math.min(level - 1, 15) * 0.5 + Math.max(0, level - 16) * 0.25;
     for (let i = 0; i < drones.length; i++) {
       const dr = drones[i];
       dr.shootTimer -= dt;
@@ -2923,7 +3000,7 @@
             y: dy,
             vx: Math.cos(fAng) * (BASE_LASER_SPEED * 1.1),
             vy: Math.sin(fAng) * (BASE_LASER_SPEED * 1.1),
-            damage: BASE_LASER_DAMAGE * 0.70,
+            damage: (BASE_LASER_DAMAGE + levelFlatBonus) * 0.48 * playerDamageMult,
             life: 0.9,
             pierce: 1,
             isCrit: Math.random() < critChance,
@@ -2931,7 +3008,7 @@
             hitEnemies: new Set()
           });
           playSynthSound('laser');
-          dr.shootTimer = 0.65;
+          dr.shootTimer = 0.85;
         }
       }
     }
@@ -3059,12 +3136,13 @@
   }
 
   function triggerEmpNova() {
+    const lvl = Math.max(1, empLevel || 1);
     empWaves.push({
       x: player.x,
       y: player.y,
       radius: 10,
-      maxRadius: 240,
-      damage: 60
+      maxRadius: 200 + lvl * 32,
+      damage: (42 + lvl * 14) * playerDamageMult
     });
     screenShake = 8;
     playSynthSound('explode');
@@ -3131,29 +3209,31 @@
       const mod = currentHordeMod || HORDE_MODIFIERS[0];
       const sniperThreshold = level >= 2 ? (mod.sniperBias || 0.28) : 0;
       const roll = Math.random();
+      const hpScale = 1 + (level - 1) * 0.24 + Math.pow(Math.max(0, level - 5), 1.42) * 0.045;
+      const speedScale = Math.min(1.55, 1 + (level - 1) * 0.018);
+
       let type = 'mite';
-      // Menos mobs, porém com mais vida escalada pelo nível + modificador da roleta
-      let hp = 45 + (level - 1) * 14;
-      let speed = 92 + (Math.random() - 0.5) * 24;
+      let hp = 48 * hpScale;
+      let speed = (92 + (Math.random() - 0.5) * 24) * speedScale;
       let radius = 14;
       let color = '#d4d4d8'; // Zinc 300
 
       if (level >= 2 && roll < sniperThreshold) {
         type = 'sniper';
-        hp = 60 + (level - 1) * 18;
-        speed = 82;
+        hp = 62 * hpScale;
+        speed = 84 * speedScale;
         radius = 16;
         color = '#e4e4e7';
       } else if (level >= 3 && roll < sniperThreshold + 0.28) {
         type = 'byte';
-        hp = 85 + (level - 1) * 24;
-        speed = 68;
+        hp = 92 * hpScale;
+        speed = 70 * speedScale;
         radius = 18;
         color = '#ffffff'; // Pure White
-      } else if (level >= 5 && roll > 0.80) {
+      } else if (level >= 5 && roll > 0.78) {
         type = 'corruptor';
-        hp = 220 + (level - 1) * 55;
-        speed = 45;
+        hp = 230 * hpScale;
+        speed = 48 * speedScale;
         radius = 28;
         color = '#a1a1aa'; // Zinc 400
       }
@@ -3172,7 +3252,7 @@
         radius: radius,
         color: color,
         type: type,
-        shootTimer: 1.6 + Math.random() * 1.2
+        shootTimer: Math.max(0.85, 1.6 - level * 0.025) + Math.random() * 0.9
       });
     }
   }
@@ -3301,21 +3381,22 @@
         e.x = Math.max(bounds.minX + 16, Math.min(bounds.maxX - 16, e.x));
         e.y = Math.max(bounds.minY + 16, Math.min(bounds.maxY - 16, e.y));
 
-        // Disparo de projétil inimigo com recarga
+        // Disparo de projétil inimigo com recarga e dano escalonados pelo nível
         e.shootTimer = (e.shootTimer || 2.0) - dt;
         if (e.shootTimer <= 0) {
           const aimAngle = Math.atan2(player.y - e.y, player.x - e.x);
+          const bulletSpeed = Math.min(430, 320 + (level - 1) * 3.5);
           enemyBullets.push({
             x: e.x + Math.cos(aimAngle) * (e.radius + 6),
             y: e.y + Math.sin(aimAngle) * (e.radius + 6),
-            vx: Math.cos(aimAngle) * 320,
-            vy: Math.sin(aimAngle) * 320,
+            vx: Math.cos(aimAngle) * bulletSpeed,
+            vy: Math.sin(aimAngle) * bulletSpeed,
             radius: 5.5,
-            damage: 14,
+            damage: Math.round(14 * getThreatDamageScale(level)),
             life: 3.5
           });
           playSynthSound('enemy_shot');
-          e.shootTimer = 2.4 + Math.random() * 0.6;
+          e.shootTimer = Math.max(1.25, 2.4 - level * 0.035) + Math.random() * 0.5;
         }
       } else {
         // Mobs comuns de combate corpo-a-corpo
@@ -3337,7 +3418,7 @@
               vx: Math.cos(sang) * 260,
               vy: Math.sin(sang) * 260,
               radius: 6,
-              damage: 18,
+              damage: Math.round(18 * getThreatDamageScale(level)),
               life: 3.6
             });
           }
@@ -3348,11 +3429,12 @@
 
       // Check collision with player
       if (player.invulnerableTimer <= 0 && Math.hypot(e.x - player.x, e.y - player.y) <= e.radius + 16) {
-        player.health -= 15;
+        const contactDmg = Math.round(15 * getThreatDamageScale(level));
+        player.health -= contactDmg;
         player.invulnerableTimer = 0.6;
         screenShake = 12;
         createSparks(player.x, player.y, '#ffffff', 12);
-        addFloatingText(player.x, player.y - 25, '-15 HP', '#ffffff');
+        addFloatingText(player.x, player.y - 25, `-${contactDmg} HP`, '#ffffff');
         playSynthSound('hit');
 
         if (player.health <= 0) {
@@ -3429,10 +3511,10 @@
     currentXP = 0;
     targetXP = Math.round(BASE_XP_LEVEL_UP * Math.pow(1.18, level - 1));
 
-    // Bônus passivo a cada nível: +4% Velocidade e +5% Max HP (com cura de 10%)
-    player.speed *= 1.04;
-    player.maxHealth *= 1.05;
-    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.10);
+    // Bônus passivo linear com teto suave (evita velocidade/HP exponenciais em níveis altos)
+    player.speed = Math.min(MAX_PLAYER_SPEED, BASE_PLAYER_SPEED + (level - 1) * 6.5);
+    player.maxHealth = Math.round(player.maxHealth + 4);
+    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.05);
 
     addFloatingText(player.x, player.y - 45, `HORDA ${level - 1} LIMPA!`, '#fafafa');
     addFloatingText(player.x, player.y - 70, `PROTOCOL LEVEL ${level}`, '#00f0ff');
@@ -3456,17 +3538,91 @@
   function openUpgradeModal() {
     state = GameState.LEVEL_UP;
     isMegaUpgradeModal = false;
-    const catalog = [
-      { id: 'multishot', title: 'DISPARO EXPANSIVO', desc: `+2 Lasers em Leque (Total: ${projectileCount + 2})`, icon: '◈' },
-      { id: 'orbital_shield', title: 'MATRIZ DE ESCUDOS', desc: `+1 Escudo Orbital Concêntrico (Total: ${orbitalShieldCount + 1})`, icon: '◎' },
-      { id: 'laser_pierce', title: 'LASER PERFURANTE', desc: `Lasers atravessam +1 inimigo em linha (Total: ${laserPierce + 1})`, icon: '⇶' },
-      { id: 'bit_drone', title: 'DRONE SATELLITE AN', desc: `+1 Drone autônomo com tiro independente (Total: ${droneCount + 1})`, icon: '▲' },
-      { id: 'crit_overclock', title: 'OVERCLOCK CRÍTICO', desc: `+20% Chance Crítica (${Math.round((critChance + 0.2) * 100)}% total a 2.2x Dano)`, icon: '⚡' },
-      { id: 'fire_rate', title: 'TURBO RECARGA', desc: '+25% Cadência de Disparo em todas as armas', icon: '⏱️' },
-      { id: 'emp_nova', title: 'PULSO DEVASTADOR EMP', desc: 'Onda de choque digital periódica a cada 3.5s', icon: '💥' },
-      { id: 'magnet', title: 'ÍMÃ GRAVITACIONAL', desc: '+70% Raio de Atração de XP Quântico', icon: '🧲' },
-      { id: 'health', title: 'BLINDAGEM NANITE', desc: '+40 HP Máximo e Cura Completa Imediata', icon: '✚' }
+    const catalog = [];
+
+    if (projectileCount < MAX_PROJECTILES) {
+      catalog.push({
+        id: 'multishot',
+        title: 'DISPARO EXPANSIVO',
+        desc: `+1 Laser em Leque (${projectileCount + 1}/${MAX_PROJECTILES} max)`,
+        icon: '◈'
+      });
+    }
+    if (orbitalShieldCount < MAX_ORBITAL_SHIELDS) {
+      catalog.push({
+        id: 'orbital_shield',
+        title: 'MATRIZ DE ESCUDOS',
+        desc: `+1 Escudo Orbital com bloqueio e recarga (${orbitalShieldCount + 1}/${MAX_ORBITAL_SHIELDS})`,
+        icon: '◎'
+      });
+    }
+    if (laserPierce < MAX_LASER_PIERCE) {
+      catalog.push({
+        id: 'laser_pierce',
+        title: 'LASER PERFURANTE',
+        desc: `Lasers atravessam +1 inimigo (${laserPierce + 1}/${MAX_LASER_PIERCE})`,
+        icon: '⇶'
+      });
+    }
+    if (droneCount < MAX_DRONES) {
+      catalog.push({
+        id: 'bit_drone',
+        title: 'DRONE SATELLITE AN',
+        desc: `+1 Drone autônomo satélite (${droneCount + 1}/${MAX_DRONES})`,
+        icon: '▲'
+      });
+    }
+    if (critChance < MAX_CRIT_CHANCE) {
+      const nextCrit = Math.round(Math.min(MAX_CRIT_CHANCE, critChance + 0.12) * 100);
+      catalog.push({
+        id: 'crit_overclock',
+        title: 'OVERCLOCK CRÍTICO',
+        desc: `+12% Chance Crítica e +0.15x Dano (${nextCrit}% / Teto ${Math.round(MAX_CRIT_CHANCE * 100)}%)`,
+        icon: '⚡'
+      });
+    }
+    if (fireRateStacks < MAX_FIRE_RATE_STACKS) {
+      catalog.push({
+        id: 'fire_rate',
+        title: 'TURBO RECARGA',
+        desc: `+16% Cadência Aditiva (${fireRateStacks + 1}/${MAX_FIRE_RATE_STACKS})`,
+        icon: '⏱️'
+      });
+    }
+    if (empLevel < MAX_EMP_LEVEL) {
+      catalog.push({
+        id: 'emp_nova',
+        title: empLevel === 0 ? 'PULSO DEVASTADOR EMP' : `EMP OVERCLOCK NV.${empLevel + 1}`,
+        desc: empLevel === 0
+          ? `Onda de choque EMP periódica (Nv. 1/${MAX_EMP_LEVEL})`
+          : `Amplia raio e dano do Pulso EMP (Nv. ${empLevel + 1}/${MAX_EMP_LEVEL})`,
+        icon: '💥'
+      });
+    }
+    if (magnetStacks < MAX_MAGNET_STACKS) {
+      catalog.push({
+        id: 'magnet',
+        title: 'ÍMÃ GRAVITACIONAL',
+        desc: `+35% Raio de Atração de XP (${magnetStacks + 1}/${MAX_MAGNET_STACKS})`,
+        icon: '🧲'
+      });
+    }
+    catalog.push({
+      id: 'health',
+      title: 'BLINDAGEM NANITE',
+      desc: '+25 HP Máximo permanente e regenera 50% de vida',
+      icon: '✚'
+    });
+
+    // Fallback tático quando todos os módulos ofensivos já atingiram o teto em runs longas
+    const fallbacks = [
+      { id: 'field_repair', title: 'REPARO TÁTICO', desc: 'Regenera 65% do HP Máximo e +40% Carga de Overdrive', icon: '✚' },
+      { id: 'overdrive_sync', title: 'SÍNCRONIZADOR OD', desc: '+50% Carga de Overdrive imediata e +8 HP Máximo', icon: '⚡' },
+      { id: 'armor_plating', title: 'CHASSI REFORÇADO', desc: '+18 HP Máximo permanente e +35% de cura imediata', icon: '🛡️' }
     ];
+    for (let f = 0; catalog.length < 3 && f < fallbacks.length; f++) {
+      catalog.push(fallbacks[f]);
+    }
 
     catalog.sort(() => Math.random() - 0.5);
     upgradeOptions = catalog.slice(0, 3);
@@ -3491,7 +3647,7 @@
       megaCatalog.push({
         id: 'mega_aim_turbo',
         title: 'OVERCLOCK AIM ASSIST V2',
-        desc: 'Elimina a lentidão do tiro automático (+45% velocidade) e adiciona +25% de Chance Crítica.',
+        desc: 'Elimina a lentidão do tiro automático e adiciona +12% Chance Crítica (+0.2x mult).',
         icon: '⚡'
       });
     }
@@ -3500,7 +3656,7 @@
     megaCatalog.push({
       id: 'mega_overcharge',
       title: 'HIPER CANHÃO OVERCHARGE',
-      desc: '+3 Canhões frontais simultâneos, +50% dano base permanente e feixes gigantes com perfuração +2.',
+      desc: `+2 Canhões (teto ${MAX_PROJECTILES + 1}), +25% dano base permanente e perfuração +1.`,
       icon: '💥'
     });
 
@@ -3508,7 +3664,7 @@
     megaCatalog.push({
       id: 'mega_orbital_bastion',
       title: 'BASTIÃO ORBITAL TITÂNICO',
-      desc: '+3 Escudos orbitais blindados que deflectem 100% dos tiros inimigos e causam dobro de dano.',
+      desc: `+2 Escudos Orbitais (teto ${MAX_ORBITAL_SHIELDS}), recarga rápida (0.9s) e +35% dano de contato.`,
       icon: '🛡️'
     });
 
@@ -3527,19 +3683,21 @@
           break;
         case 'mega_aim_turbo':
           aimAssistPenalty = 1.0;
-          critChance = Math.min(0.85, critChance + 0.25);
-          critMultiplier += 0.5;
+          critChance = Math.min(MAX_CRIT_CHANCE + 0.05, critChance + 0.12);
+          critMultiplier = Math.min(MAX_CRIT_MULTIPLIER + 0.2, critMultiplier + 0.2);
           addFloatingText(player.x, player.y - 50, 'AIM ASSIST OVERCLOCKED!', '#00f0ff');
           break;
         case 'mega_overcharge':
-          projectileCount += 3;
-          laserPierce += 2;
-          player.maxHealth += 30;
+          projectileCount = Math.min(MAX_PROJECTILES + 1, projectileCount + 2);
+          laserPierce = Math.min(MAX_LASER_PIERCE + 1, laserPierce + 1);
+          playerDamageMult = Math.min(1.85, playerDamageMult + 0.25);
+          player.maxHealth += 20;
           addFloatingText(player.x, player.y - 50, 'OVERCHARGE ENGAGED!', '#ffffff');
           break;
         case 'mega_orbital_bastion':
           hasOrbitalShield = true;
-          orbitalShieldCount += 3;
+          hasOrbitalBastion = true;
+          orbitalShieldCount = Math.min(MAX_ORBITAL_SHIELDS, orbitalShieldCount + 2);
           addFloatingText(player.x, player.y - 50, 'TITAN BASTION ACTIVE!', '#ffffff');
           break;
       }
@@ -3552,34 +3710,50 @@
 
     switch (choice.id) {
       case 'multishot':
-        projectileCount += 2;
+        projectileCount = Math.min(MAX_PROJECTILES, projectileCount + 1);
         break;
       case 'orbital_shield':
         hasOrbitalShield = true;
-        orbitalShieldCount++;
+        orbitalShieldCount = Math.min(MAX_ORBITAL_SHIELDS, orbitalShieldCount + 1);
         break;
       case 'laser_pierce':
-        laserPierce++;
+        laserPierce = Math.min(MAX_LASER_PIERCE, laserPierce + 1);
         break;
       case 'bit_drone':
-        droneCount++;
+        droneCount = Math.min(MAX_DRONES, droneCount + 1);
         break;
       case 'crit_overclock':
-        critChance = Math.min(0.85, critChance + 0.20);
-        critMultiplier += 0.3;
+        critChance = Math.min(MAX_CRIT_CHANCE, critChance + 0.12);
+        critMultiplier = Math.min(MAX_CRIT_MULTIPLIER, critMultiplier + 0.15);
         break;
       case 'fire_rate':
-        fireRateMultiplier *= 0.75;
+        fireRateStacks = Math.min(MAX_FIRE_RATE_STACKS, fireRateStacks + 1);
+        fireRateMultiplier = 1 / (1 + fireRateStacks * 0.16);
         break;
       case 'emp_nova':
         hasEmpNova = true;
+        empLevel = Math.min(MAX_EMP_LEVEL, empLevel + 1);
         break;
       case 'magnet':
-        xpMagnetRadius *= 1.7;
+        magnetStacks = Math.min(MAX_MAGNET_STACKS, magnetStacks + 1);
+        xpMagnetRadius = BASE_XP_MAGNET_RADIUS * (1 + magnetStacks * 0.35);
         break;
       case 'health':
-        player.maxHealth += 40;
-        player.health = player.maxHealth;
+        player.maxHealth += 25;
+        player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.50);
+        break;
+      case 'field_repair':
+        player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.65);
+        overdriveCharge = Math.min(100, overdriveCharge + 40);
+        break;
+      case 'overdrive_sync':
+        overdriveCharge = Math.min(100, overdriveCharge + 50);
+        player.maxHealth += 8;
+        player.health = Math.min(player.maxHealth, player.health + 8);
+        break;
+      case 'armor_plating':
+        player.maxHealth += 18;
+        player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.35);
         break;
     }
 
@@ -4591,6 +4765,18 @@
     }
 
     for (const pos of positions) {
+      if (pos.recharging) {
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        continue;
+      }
+
       ctx.shadowColor = '#ffffff';
       ctx.shadowBlur = 10;
 
