@@ -420,7 +420,7 @@
         const cardH = UPGRADE_CARD_H;
         const cardGap = UPGRADE_CARD_GAP;
         const startX = (V_WIDTH - (3 * cardW + 2 * cardGap)) * 0.5;
-        const cardY = (V_HEIGHT - cardH) * 0.5 + 20;
+        const cardY = (V_HEIGHT - cardH) * 0.5 + 36;
 
         for (let j = 0; j < upgradeOptions.length; j++) {
           const rx = startX + j * (cardW + cardGap);
@@ -646,7 +646,7 @@
       const cardH = UPGRADE_CARD_H;
       const cardGap = UPGRADE_CARD_GAP;
       const startX = (V_WIDTH - (3 * cardW + 2 * cardGap)) * 0.5;
-      const cardY = (V_HEIGHT - cardH) * 0.5 + 20;
+      const cardY = (V_HEIGHT - cardH) * 0.5 + 36;
 
       for (let i = 0; i < upgradeOptions.length; i++) {
         const rx = startX + i * (cardW + cardGap);
@@ -1084,9 +1084,9 @@
   let radarScanAngle = 0.0;
 
   // Upgrade Choices
-  const UPGRADE_CARD_W = 264;
-  const UPGRADE_CARD_H = 250;
-  const UPGRADE_CARD_GAP = 24;
+  const UPGRADE_CARD_W = 300;
+  const UPGRADE_CARD_H = 295;
+  const UPGRADE_CARD_GAP = 26;
   let upgradeOptions = [];
 
   // Entities
@@ -4591,8 +4591,8 @@
     const cardH = UPGRADE_CARD_H;
     const cardGap = UPGRADE_CARD_GAP;
     const startX = (V_WIDTH - (3 * cardW + 2 * cardGap)) * 0.5;
-    const cardY = (V_HEIGHT - cardH) * 0.5 + 20;
-    const maxContentWidth = cardW - 32;
+    const cardY = (V_HEIGHT - cardH) * 0.5 + 36;
+    const maxContentWidth = cardW - 36;
 
     for (let i = 0; i < upgradeOptions.length; i++) {
       const opt = upgradeOptions[i];
@@ -4613,9 +4613,12 @@
       ctx.shadowBlur = 0;
 
       if (isAiSelected) {
+        ctx.save();
         ctx.fillStyle = '#00f0ff';
         ctx.font = '700 10px "JetBrains Mono", monospace';
-        ctx.fillText('● AI PICKING...', rx + cardW * 0.5, cardY + cardH - 12);
+        ctx.textAlign = 'right';
+        ctx.fillText('● AI PICKING...', rx + cardW - 18, cardY + 32);
+        ctx.restore();
       }
 
       // Key Badge
